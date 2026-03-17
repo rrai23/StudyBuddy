@@ -9,8 +9,9 @@ class TaskBar extends StatelessWidget {
       padding: EdgeInsets.all(8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(50),
-        border: Border(
-          
+        border: Border.all(
+          color: Colors.black,
+          width: 2,  
         ),
         color: Colors.green[100],
       ),
