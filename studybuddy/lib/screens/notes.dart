@@ -183,6 +183,7 @@ SizedBox(width: 150,),
     icon: Icon(Icons.add, color: Colors.white),
   ),
 ),
+SizedBox(width: 20,)
 
             ],
           ),
