@@ -6,7 +6,7 @@ class TaskBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(8),
+      padding: EdgeInsets.all(2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(50),
         border: Border.all(

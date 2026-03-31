@@ -5,7 +5,7 @@ import 'package:studybuddy/screens/homepage.dart';
 import 'package:studybuddy/screens/notes.dart';
 
 void main() async {
-
+  WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   Hive.registerAdapter(NoteDataAdapter());
   await Hive.openBox<NoteData>('notesBox');
