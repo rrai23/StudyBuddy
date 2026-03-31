@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:studybuddy/screens/focus.dart';
 import 'package:studybuddy/screens/notes.dart';
+import 'package:studybuddy/screens/homepage.dart';
+
 
 class TaskBar extends StatelessWidget {
   const TaskBar({super.key});
@@ -26,7 +28,7 @@ class TaskBar extends StatelessWidget {
           TaskIcon("lib/assets/home.png", () {
             Navigator.push(context, MaterialPageRoute(
               builder: (context) {
-                return FocusPage();
+                return Homepage();
               },
             ));
           }),
