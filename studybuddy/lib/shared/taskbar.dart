@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:studybuddy/screens/focus.dart';
+import 'package:studybuddy/screens/notes.dart';
 
 class TaskBar extends StatelessWidget {
   const TaskBar({super.key});
@@ -21,10 +23,35 @@ class TaskBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
 
-          TaskIcon("lib/assets/home.png"),
-          TaskIcon("lib/assets/planner.png"),
-          TaskIcon("lib/assets/focus.png"),
-          TaskIcon("lib/assets/notes.png"),
+          TaskIcon("lib/assets/home.png", () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (context) {
+                return FocusPage();
+              },
+            ));
+          }),
+
+          TaskIcon("lib/assets/planner.png",  () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (context) {
+                return Notes();
+              },
+            ));
+          }),
+          TaskIcon("lib/assets/focus.png",  () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (context) {
+                return FocusPage();
+              },
+            ));
+          }),
+          TaskIcon("lib/assets/notes.png",  () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (context) {
+                return FocusPage();
+              },
+            ));
+          }),
 
         ]
        
@@ -34,8 +61,9 @@ class TaskBar extends StatelessWidget {
 }
 
 class TaskIcon extends StatelessWidget {
-  const TaskIcon(this.path ,{super.key});
+  const TaskIcon(this.path , this.onTap, {super.key});
   final String path; 
+  final VoidCallback onTap;  
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +75,7 @@ class TaskIcon extends StatelessWidget {
             fit: BoxFit.contain,
             ),
       onTap: () {
-        print("Hello world");
+        onTap();
       },
     );
   }

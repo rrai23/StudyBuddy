@@ -140,35 +140,9 @@ class _HomeState extends State<Notes> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "THE",
-              style: GoogleFonts.montserrat(
-                fontSize: 23,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              "NOTES",
-              style: GoogleFonts.montserrat(
-                fontSize: 23,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
+         elevation: 0,
+        backgroundColor: Colors.transparent,
 
-        actions: [
-          IconButton(
-            onPressed: createNote,
-
-            icon: Icon(Icons.add),
-            iconSize: 35,
-          ),
-          SizedBox(width: 20),
-        ],
       ),
 
       bottomNavigationBar: BottomAppBar(child: TaskBar()),
@@ -177,6 +151,45 @@ class _HomeState extends State<Notes> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          const SizedBox(height: 20,),
+          
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  "THE\nNOTES",
+                  style: TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                    
+                  ),
+                ),
+              ),
+
+SizedBox(width: 150,),
+
+              Container(
+  decoration: BoxDecoration(
+    shape: BoxShape.circle,
+    color: Colors.blue,
+  ),
+  child: IconButton(
+    onPressed: () {
+      createNote();
+    },
+    icon: Icon(Icons.add, color: Colors.white),
+  ),
+),
+
+            ],
+          ),
+
+          const SizedBox(height: 30),
+
+
           SizedBox(height: 20),
 
           Expanded(
