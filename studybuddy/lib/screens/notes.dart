@@ -144,7 +144,7 @@ class _HomeState extends State<Notes> {
         backgroundColor: Colors.transparent,
 
       ),
-
+      backgroundColor: const Color(0xFFF5F5F5),
       bottomNavigationBar: BottomAppBar(child: TaskBar()),
 
       body: Column(
@@ -183,7 +183,7 @@ SizedBox(width: 150,),
     icon: Icon(Icons.add, color: Colors.white),
   ),
 ),
-SizedBox(width: 20,)
+SizedBox(width: 10,)
 
             ],
           ),
