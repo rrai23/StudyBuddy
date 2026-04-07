@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:studybuddy/shared/taskbar.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:studybuddy/screens/planner_empty_screen.dart';
 
 class Homepage extends StatelessWidget {
   const Homepage({super.key});
@@ -51,7 +52,7 @@ class Homepage extends StatelessWidget {
                 Text(
                   greeting,
                   textAlign: TextAlign.start,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 40,
                     fontWeight: FontWeight.w900,
                     height: 1,
@@ -73,34 +74,45 @@ class Homepage extends StatelessWidget {
 
             const SizedBox(height: 25),
 
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Colors.black, width: 2),
-              ),
-              child: Column( 
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    dayName,
-                    style: GoogleFonts.montserrat(fontSize: 16),
+            // 🔥 CLICKABLE DATE CARD (opens planner)
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PlannerEmptyScreen(),
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    dayNumber,
-                    style: GoogleFonts.montserrat(
-                      fontSize: 72,
-                      fontWeight: FontWeight.bold,
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.black, width: 2),
+                ),
+                child: Column( 
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dayName,
+                      style: GoogleFonts.montserrat(fontSize: 16),
                     ),
-                  ),
-                  Text(
-                    month.toUpperCase(),
-                    style: GoogleFonts.montserrat(fontSize: 18),
-                  ),
-                ],
+                    const SizedBox(height: 5),
+                    Text(
+                      dayNumber,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 72,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      month.toUpperCase(),
+                      style: GoogleFonts.montserrat(fontSize: 18),
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -110,7 +122,7 @@ class Homepage extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            Text(
+            const Text(
               "TODAY",
               style: TextStyle(
                 fontSize: 18,
