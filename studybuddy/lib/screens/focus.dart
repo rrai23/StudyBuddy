@@ -213,19 +213,10 @@ class __visStateState extends State<_visState> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: Image.network(
-          'https://i.pinimg.com/originals/90/34/74/903474fd8172d3ac49ec4fefcd489ba9.gif',
-          fit: BoxFit.contain,
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return const Center(child: CircularProgressIndicator());
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return const Center(
-              child: Icon(Icons.error, size: 50),
-            );
-          },
-        ),
+        child: Image.asset(
+  'lib/assets/animation.gif',
+  fit: BoxFit.contain,
+),
       ),
     );
   }

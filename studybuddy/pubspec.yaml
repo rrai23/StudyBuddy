@@ -27,5 +27,6 @@ flutter:
 
   assets: 
     - lib/assets/
+    - lib/assets/animation.gif
 
   uses-material-design: true
