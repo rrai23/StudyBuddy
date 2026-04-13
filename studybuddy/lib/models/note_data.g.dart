@@ -20,19 +20,22 @@ class NoteDataAdapter extends TypeAdapter<NoteData> {
       title: fields[0] as String,
       content: fields[1] as String,
       date: fields[2] as String,
+      blockColorValue: fields[3] == null ? 0xFF2196F3 : fields[3] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, NoteData obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.title)
       ..writeByte(1)
       ..write(obj.content)
       ..writeByte(2)
-      ..write(obj.date);
+      ..write(obj.date)
+      ..writeByte(3)
+      ..write(obj.blockColorValue);
   }
 
   @override

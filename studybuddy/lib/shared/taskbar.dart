@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:studybuddy/screens/focus.dart';
 import 'package:studybuddy/screens/notes.dart';
 import 'package:studybuddy/screens/homepage.dart';
+import 'package:studybuddy/screens/planner_empty_screen.dart';
 
 
 class TaskBar extends StatelessWidget {
@@ -50,7 +51,7 @@ class TaskBar extends StatelessWidget {
           TaskIcon("lib/assets/notes.png",  () {
             Navigator.push(context, MaterialPageRoute(
               builder: (context) {
-                return FocusPage();
+                return PlannerEmptyScreen();
               },
             ));
           }),

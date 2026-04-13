@@ -9,6 +9,7 @@ class NoteData {
     required this.title,
     required this.content,
     required this.date,
+    this.blockColorValue = 0xFF2196F3,
   });
 
   @HiveField(0)
@@ -19,5 +20,8 @@ class NoteData {
 
   @HiveField(2)
   final String date;
+
+  @HiveField(3)
+  final int blockColorValue;
 
 }

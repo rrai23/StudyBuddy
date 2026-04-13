@@ -8,232 +8,195 @@ class Notes extends StatefulWidget {
   const Notes({super.key});
 
   @override
-  State<Notes> createState() => _HomeState();
+  State<Notes> createState() => _NotesState();
 }
 
-class _HomeState extends State<Notes> {
-  NoteDatabase database = NoteDatabase();
-  TextEditingController titleController = TextEditingController();
-  TextEditingController contentController = TextEditingController();
+class _NotesState extends State<Notes> {
+  static const int defaultBlockColorValue = 0xFF2196F3;
 
-  void createNote() {
+  final NoteDatabase database = NoteDatabase();
+
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController contentController = TextEditingController();
+
+  final List<Color> availableColors = const [
+    Color(0xFF2196F3),
+    Color(0xFF26A69A),
+    Color(0xFFFFB300),
+    Color(0xFFEF5350),
+    Color(0xFFAB47BC),
+    Color(0xFF8D6E63),
+    Color(0xFF42A5F5),
+    Color(0xFF66BB6A),
+  ];
+
+  int selectedColorValue = defaultBlockColorValue;
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    contentController.dispose();
+    super.dispose();
+  }
+
+  void openNoteEditor({NoteData? existingNote, int? noteIndex}) {
+    final bool isEditing = existingNote != null && noteIndex != null;
+
+    titleController.text = isEditing ? existingNote.title : '';
+    contentController.text = isEditing ? existingNote.content : '';
+    selectedColorValue = isEditing
+      ? existingNote.blockColorValue
+      : defaultBlockColorValue;
+
     showDialog(
       context: context,
       builder: (context) {
-        return Dialog(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: Colors.black, width: 3),
-            ),
-            width: 750,
-            height: 700,
-
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(height: 20),
-                Text(
-                  "Create A New Note",
-                  style: GoogleFonts.montserrat(
-                    fontSize: 23,
-                    fontWeight: FontWeight.bold,
-                  ),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.black, width: 3),
                 ),
-
-                SizedBox(height: 20),
-
-                SizedBox(
-                  width: 300,
-                  child: TextField(
-                    controller: titleController,
-                    cursorColor: Colors.black,
-                    decoration: InputDecoration(
-                      focusColor: Colors.black,
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.black, width: 2),
+                width: 750,
+                height: 760,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 20),
+                    Text(
+                      isEditing ? 'Edit Note' : 'Create A New Note',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 23,
+                        fontWeight: FontWeight.bold,
                       ),
-                      label: Text("Title"),
-                      floatingLabelStyle: TextStyle(color: Colors.black),
-                      border: OutlineInputBorder(),
                     ),
-                  ),
-                ),
-
-                SizedBox(height: 30),
-
-                SizedBox(
-                  width: 300,
-                  child: TextField(
-                    controller: contentController,
-                    keyboardType: TextInputType.multiline,
-                    maxLines: 15,
-                    cursorColor: Colors.black,
-                    decoration: InputDecoration(
-                      label: Text("Write your note here"),
-                      floatingLabelStyle: TextStyle(color: Colors.black),
-                      focusColor: Colors.black,
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.black, width: 2),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: 300,
+                      child: TextField(
+                        controller: titleController,
+                        cursorColor: Colors.black,
+                        decoration: const InputDecoration(
+                          focusColor: Colors.black,
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black, width: 2),
+                          ),
+                          label: Text('Title'),
+                          floatingLabelStyle: TextStyle(color: Colors.black),
+                          border: OutlineInputBorder(),
+                        ),
                       ),
-                      border: OutlineInputBorder(),
                     ),
-                  ),
-                ),
-
-                SizedBox(height: 50),
-
-                FilledButton(
-                  onPressed: formHandler,
-
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    elevation: 8,
-                    side: BorderSide(color: Colors.black, width: 2),
-                  ),
-
-                  child: Text(
-                    "Submit",
-                    style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 17,
-                      color: Colors.black,
+                    const SizedBox(height: 30),
+                    SizedBox(
+                      width: 300,
+                      child: TextField(
+                        controller: contentController,
+                        keyboardType: TextInputType.multiline,
+                        maxLines: 12,
+                        cursorColor: Colors.black,
+                        decoration: const InputDecoration(
+                          label: Text('Write your note here'),
+                          floatingLabelStyle: TextStyle(color: Colors.black),
+                          focusColor: Colors.black,
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black, width: 2),
+                          ),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Block Color',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.center,
+                      children: availableColors.map((color) {
+                        final bool isSelected = selectedColorValue == color.toARGB32();
+                        return GestureDetector(
+                          onTap: () {
+                            setDialogState(() {
+                              selectedColorValue = color.toARGB32();
+                            });
+                          },
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected ? Colors.black : Colors.white,
+                                width: isSelected ? 3 : 1,
+                              ),
+                            ),
+                            child: isSelected
+                                ? const Icon(
+                                    Icons.check,
+                                    size: 18,
+                                    color: Colors.white,
+                                  )
+                                : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: () {
+                        final NoteData note = NoteData(
+                          title: titleController.text.trim(),
+                          content: contentController.text.trim(),
+                          date:
+                              '${DateTime.now().year}/${DateTime.now().month}/${DateTime.now().day}',
+                          blockColorValue: selectedColorValue,
+                        );
+
+                        if (isEditing) {
+                          database.updateNote(noteIndex, note);
+                        } else {
+                          database.addNote(note);
+                        }
+
+                        titleController.clear();
+                        contentController.clear();
+
+                        setState(() {});
+                        Navigator.pop(context);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        elevation: 8,
+                        side: const BorderSide(color: Colors.black, width: 2),
+                      ),
+                      child: Text(
+                        isEditing ? 'Save Changes' : 'Submit',
+                        style: GoogleFonts.montserrat(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
-
-
-
-  void formHandler() {
-    NoteData data = NoteData(
-      title: titleController.text,
-      content: contentController.text,
-      date: DateTime.now().year.toString() + "/" + DateTime.now().month.toString() + "/" + DateTime.now().day.toString(),
-    );
-
-      database.addNote(data);
-
-      titleController.clear();
-
-      contentController.clear();
-
-
-
-      setState(() {
-        
-      });
-
-
-      Navigator.pop(context);
-
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-         elevation: 0,
-        backgroundColor: Colors.transparent,
-
-      ),
-      backgroundColor: const Color(0xFFF5F5F5),
-      bottomNavigationBar: BottomAppBar(child: TaskBar()),
-
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 20,),
-          
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  "THE\nNOTES",
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                    
-                  ),
-                ),
-              ),
-
-SizedBox(width: 150,),
-
-              Container(
-  decoration: BoxDecoration(
-    shape: BoxShape.circle,
-    color: Colors.blue,
-  ),
-  child: IconButton(
-    onPressed: () {
-      createNote();
-    },
-    icon: Icon(Icons.add, color: Colors.white),
-  ),
-),
-SizedBox(width: 10,)
-
-            ],
-          ),
-
-          const SizedBox(height: 30),
-
-
-          SizedBox(height: 20),
-
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 20,
-                crossAxisSpacing: 20,
-              ),
-            
-              itemBuilder: (context, index) {
-                NoteData data = database.getAllNotes()[index];
-                return NoteContainer(data, index, () {
-                    database.removeNote(index);
-                    setState(() {
-                      
-                    });
-                    Navigator.pop(context);
-                });
-              },
-              itemCount: database.getAllNotes().length,
-            ),
-          )
-
-        ],
-      ),
-    );
-  }
-}
-
-class NoteContainer extends StatelessWidget {
-  const NoteContainer(this.noteData, this.noteIndex, this.onDelete ,{super.key});
-
-  final NoteData noteData;
-  final int noteIndex;
-  final VoidCallback onDelete;
-
-
-
-  @override
-  Widget build(BuildContext context) {
-
-    void viewNote() {
+  void openNoteViewer(NoteData noteData, int noteIndex) {
     showDialog(
       context: context,
       builder: (context) {
@@ -245,11 +208,10 @@ class NoteContainer extends StatelessWidget {
             ),
             width: 750,
             height: 700,
-
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 Text(
                   noteData.title,
                   style: GoogleFonts.montserrat(
@@ -257,64 +219,62 @@ class NoteContainer extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 20),
-
+                const SizedBox(height: 20),
                 Expanded(
                   child: ListView(
-                    padding: EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(10),
                     children: [
                       Text(
-                       noteData.content,
-                       style: GoogleFonts.montserrat(
-                       fontSize: 15, 
+                        noteData.content,
+                        style: GoogleFonts.montserrat(fontSize: 15),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                  
                     ],
                   ),
                 ),
-
-                Spacer(),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-
-                  FilledButton(
-                  onPressed: (){
-                    Navigator.pop(context);
-                  },
-                  child: Icon(Icons.arrow_back),
-
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    elevation: 8,
-                    side: BorderSide(color: Colors.black, width: 2),
-                  )
-                  ),
-
-                  FilledButton(
-                  onPressed:onDelete
-                  ,
-                  child: Icon(Icons.delete),
-
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    elevation: 8,
-                    side: BorderSide(color: Colors.black, width: 2),
-                  )
-                  ),
-
-
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        elevation: 8,
+                        side: const BorderSide(color: Colors.black, width: 2),
+                      ),
+                      child: const Icon(Icons.arrow_back),
+                    ),
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        openNoteEditor(existingNote: noteData, noteIndex: noteIndex);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        elevation: 8,
+                        side: const BorderSide(color: Colors.black, width: 2),
+                      ),
+                      child: const Icon(Icons.edit),
+                    ),
+                    FilledButton(
+                      onPressed: () {
+                        database.removeNote(noteIndex);
+                        setState(() {});
+                        Navigator.pop(context);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        elevation: 8,
+                        side: const BorderSide(color: Colors.black, width: 2),
+                      ),
+                      child: const Icon(Icons.delete),
+                    ),
                   ],
-
-
-                )
-
-
+                ),
+                const SizedBox(height: 20),
               ],
-              
             ),
           ),
         );
@@ -322,19 +282,95 @@ class NoteContainer extends StatelessWidget {
     );
   }
 
+  @override
+  Widget build(BuildContext context) {
+    final List<NoteData> notes = database.getAllNotes();
 
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+      ),
+      backgroundColor: const Color(0xFFF5F5F5),
+      bottomNavigationBar: const BottomAppBar(child: TaskBar()),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'THE\nNOTES',
+                  style: TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 150),
+              Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.blue,
+                ),
+                child: IconButton(
+                  onPressed: () => openNoteEditor(),
+                  icon: const Icon(Icons.add, color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
+          ),
+          const SizedBox(height: 30),
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 20,
+                crossAxisSpacing: 20,
+              ),
+              itemBuilder: (context, index) {
+                final NoteData data = notes[index];
+                return NoteContainer(
+                  noteData: data,
+                  onTap: () => openNoteViewer(data, index),
+                );
+              },
+              itemCount: notes.length,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class NoteContainer extends StatelessWidget {
+  const NoteContainer({
+    required this.noteData,
+    required this.onTap,
+    super.key,
+  });
+
+  final NoteData noteData;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
         GestureDetector(
-          onTap: () {
-            viewNote();
-          },
-
+          onTap: onTap,
           child: Container(
             width: 175,
             height: 150,
             decoration: BoxDecoration(
-              color: Colors.blue,
+              color: Color(noteData.blockColorValue),
               borderRadius: BorderRadius.circular(30),
               border: Border.all(color: Colors.black, width: 2),
             ),
@@ -342,7 +378,7 @@ class NoteContainer extends StatelessWidget {
         ),
         Text(
           noteData.title,
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
         ),
         Text(noteData.date),
       ],
