@@ -361,12 +361,12 @@ class _FocusMainState extends State<_FocusMain> {
                     ? Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildButton('Stop', () {
-                            stopTimer();
+                          _buildButton('Stop', () async {
+                            await stopTimer();
                           }),
                           const SizedBox(width: 12),
-                          _buildButton('Reset', () {
-                            resetTimer();
+                          _buildButton('Reset', () async {
+                            await resetTimer();
                           }),
                         ],
                       )
@@ -399,11 +399,71 @@ class _FocusMainState extends State<_FocusMain> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Study Log',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Study Log',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                    ),
+                    if (studyLogs.isNotEmpty)
+                      GestureDetector(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Clear All Logs?'),
+                              content: const Text(
+                                'This will permanently delete all study logs. This action cannot be undone.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Cancel'),
+                                ),
+                                FilledButton(
+                                  onPressed: () async {
+                                    final NavigatorState navigator = Navigator.of(context);
+                                    setState(() {
+                                      studyLogs.clear();
+                                    });
+                                    await _saveStats();
+                                    if (navigator.mounted) {
+                                      navigator.pop();
+                                    }
+                                  },
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                  child: const Text('Clear All'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red, width: 1),
+                          ),
+                          child: const Text(
+                            'Clear',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),

@@ -37,7 +37,7 @@ class TaskBar extends StatelessWidget {
           TaskIcon("lib/assets/planner.png",  () {
             Navigator.push(context, MaterialPageRoute(
               builder: (context) {
-                return Notes();
+                return PlannerEmptyScreen();
               },
             ));
           }),
@@ -51,7 +51,7 @@ class TaskBar extends StatelessWidget {
           TaskIcon("lib/assets/notes.png",  () {
             Navigator.push(context, MaterialPageRoute(
               builder: (context) {
-                return PlannerEmptyScreen();
+                return Notes();
               },
             ));
           }),

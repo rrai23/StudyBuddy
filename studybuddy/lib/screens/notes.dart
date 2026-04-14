@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_flutter/adapters.dart';
 import 'package:studybuddy/models/note_data.dart';
 import 'package:studybuddy/models/note_database.dart';
 import 'package:studybuddy/shared/taskbar.dart';
@@ -12,6 +13,7 @@ class Notes extends StatefulWidget {
 }
 
 class _NotesState extends State<Notes> {
+  static const String plannerPrefix = '__planner__::';
   static const int defaultBlockColorValue = 0xFF2196F3;
 
   final NoteDatabase database = NoteDatabase();
@@ -284,7 +286,21 @@ class _NotesState extends State<Notes> {
 
   @override
   Widget build(BuildContext context) {
-    final List<NoteData> notes = database.getAllNotes();
+    final Box<NoteData> box = Hive.box<NoteData>('notesBox');
+    final List<_NoteRecord> notes = <_NoteRecord>[];
+
+    for (int index = 0; index < box.length; index++) {
+      final NoteData? note = box.getAt(index);
+      if (note == null) {
+        continue;
+      }
+
+      if (note.content.startsWith(plannerPrefix)) {
+        continue;
+      }
+
+      notes.add(_NoteRecord(index: index, noteData: note));
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -335,10 +351,10 @@ class _NotesState extends State<Notes> {
                 crossAxisSpacing: 20,
               ),
               itemBuilder: (context, index) {
-                final NoteData data = notes[index];
+                final _NoteRecord record = notes[index];
                 return NoteContainer(
-                  noteData: data,
-                  onTap: () => openNoteViewer(data, index),
+                  noteData: record.noteData,
+                  onTap: () => openNoteViewer(record.noteData, record.index),
                 );
               },
               itemCount: notes.length,
@@ -348,6 +364,16 @@ class _NotesState extends State<Notes> {
       ),
     );
   }
+}
+
+class _NoteRecord {
+  const _NoteRecord({
+    required this.index,
+    required this.noteData,
+  });
+
+  final int index;
+  final NoteData noteData;
 }
 
 class NoteContainer extends StatelessWidget {

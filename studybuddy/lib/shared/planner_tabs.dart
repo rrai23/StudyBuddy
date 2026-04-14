@@ -6,10 +6,12 @@ import '../screens/planner_all_screen.dart';
 
 class PlannerTabs extends StatelessWidget {
   final String selectedTab;
+  final VoidCallback? onAdd;
 
   const PlannerTabs({
     super.key,
     required this.selectedTab,
+    this.onAdd,
   });
 
   @override
@@ -61,6 +63,11 @@ class PlannerTabs extends StatelessWidget {
         const SizedBox(width: 10),
         GestureDetector(
           onTap: () {
+            if (onAdd != null) {
+              onAdd!();
+              return;
+            }
+
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(

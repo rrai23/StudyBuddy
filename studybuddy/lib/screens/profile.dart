@@ -85,8 +85,12 @@ class _ProfilePageState extends State<ProfilePage> {
     if (file == null) return;
 
     final Uint8List bytes = await file.readAsBytes();
+    final String encoded = base64Encode(bytes);
+
+    await profileBox.put('profilePhotoBase64', encoded);
+
     setState(() {
-      profilePhotoBase64 = base64Encode(bytes);
+      profilePhotoBase64 = encoded;
     });
   }
 
