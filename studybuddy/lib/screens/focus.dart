@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/intl.dart';
@@ -27,6 +28,7 @@ class _FocusMainState extends State<_FocusMain> {
 
   Timer? timer;
   bool isRunning = false;
+  bool isPhaseTransitioning = false;
 
   FocusMode currentMode = FocusMode.study;
 
@@ -62,10 +64,12 @@ class _FocusMainState extends State<_FocusMain> {
 
     studyLogs = rawLogs
         .whereType<Map>()
-        .map((entry) => {
-              'date': entry['date']?.toString() ?? '',
-              'seconds': (entry['seconds'] as int?) ?? 0,
-            })
+        .map(
+          (entry) => {
+            'date': entry['date']?.toString() ?? '',
+            'seconds': (entry['seconds'] as int?) ?? 0,
+          },
+        )
         .toList();
 
     remainingSeconds = studyMinutes * 60;
@@ -81,6 +85,16 @@ class _FocusMainState extends State<_FocusMain> {
     await focusBox.put('studyLogs', studyLogs);
   }
 
+  String formatClock(int totalSeconds) {
+    final int hours = totalSeconds ~/ 3600;
+    final int minutes = (totalSeconds % 3600) ~/ 60;
+    final int seconds = totalSeconds % 60;
+
+    String two(int value) => value.toString().padLeft(2, '0');
+
+    return '${two(hours)}:${two(minutes)}:${two(seconds)}';
+  }
+
   String formatDuration(int totalSeconds) {
     final int hours = totalSeconds ~/ 3600;
     final int minutes = (totalSeconds % 3600) ~/ 60;
@@ -88,65 +102,72 @@ class _FocusMainState extends State<_FocusMain> {
   }
 
   Future<void> _setCustomTimes() async {
-    final studyController =
-        TextEditingController(text: studyMinutes.toString());
-    final breakController =
-        TextEditingController(text: breakMinutes.toString());
+    final TextEditingController studyController = TextEditingController(
+      text: studyMinutes.toString(),
+    );
+    final TextEditingController breakController = TextEditingController(
+      text: breakMinutes.toString(),
+    );
 
-    await showDialog(
+    await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Set Custom Focus Times'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: studyController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Study minutes'),
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Set Custom Focus Times'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: studyController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Study minutes'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: breakController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Break minutes'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: breakController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Break minutes'),
+            FilledButton(
+              onPressed: () {
+                final int? newStudy = int.tryParse(studyController.text.trim());
+                final int? newBreak = int.tryParse(breakController.text.trim());
+
+                if (newStudy == null ||
+                    newBreak == null ||
+                    newStudy <= 0 ||
+                    newBreak <= 0) {
+                  return;
+                }
+
+                timer?.cancel();
+                timer = null;
+                isPhaseTransitioning = false;
+
+                setState(() {
+                  isRunning = false;
+                  currentMode = FocusMode.study;
+                  studyMinutes = newStudy;
+                  breakMinutes = newBreak;
+                  remainingSeconds = studyMinutes * 60;
+                  currentStudySegmentSeconds = 0;
+                });
+
+                _saveSettings();
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final int? newStudy =
-                  int.tryParse(studyController.text.trim());
-              final int? newBreak =
-                  int.tryParse(breakController.text.trim());
-
-              if (newStudy == null ||
-                  newBreak == null ||
-                  newStudy <= 0 ||
-                  newBreak <= 0) return;
-
-              timer?.cancel();
-
-              setState(() {
-                isRunning = false;
-                currentMode = FocusMode.study;
-                studyMinutes = newStudy;
-                breakMinutes = newBreak;
-                remainingSeconds = studyMinutes * 60;
-                currentStudySegmentSeconds = 0;
-              });
-
-              _saveSettings();
-              Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     studyController.dispose();
@@ -175,15 +196,24 @@ class _FocusMainState extends State<_FocusMain> {
   void startTimer() {
     if (isRunning) return;
 
-    timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        if (currentMode == FocusMode.study) {
-          currentStudySegmentSeconds++;
-        }
+    if (remainingSeconds <= 0) {
+      remainingSeconds = currentMode == FocusMode.study
+          ? studyMinutes * 60
+          : breakMinutes * 60;
+    }
 
+    timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (isPhaseTransitioning) {
+        return;
+      }
+
+      setState(() {
         if (remainingSeconds > 0) {
           remainingSeconds--;
-          return;
+
+          if (currentMode == FocusMode.study) {
+            currentStudySegmentSeconds++;
+          }
         }
       });
 
@@ -192,33 +222,105 @@ class _FocusMainState extends State<_FocusMain> {
       }
     });
 
-    setState(() => isRunning = true);
+    setState(() {
+      isRunning = true;
+    });
   }
 
   Future<void> _handlePhaseFinished() async {
+    if (isPhaseTransitioning) return;
+
+    isPhaseTransitioning = true;
+    timer?.cancel();
+    timer = null;
+
+    if (mounted) {
+      setState(() {
+        isRunning = false;
+      });
+    }
+
     if (currentMode == FocusMode.study) {
       await _commitCurrentStudySegment();
+
+      if (!mounted) {
+        isPhaseTransitioning = false;
+        return;
+      }
+
       setState(() {
         currentMode = FocusMode.breakTime;
         remainingSeconds = breakMinutes * 60;
       });
-    } else {
-      setState(() {
-        currentMode = FocusMode.study;
-        remainingSeconds = studyMinutes * 60;
-      });
+
+      isPhaseTransitioning = false;
+      _showBreakPopup();
+      startTimer();
+      return;
     }
+
+    if (!mounted) {
+      isPhaseTransitioning = false;
+      return;
+    }
+
+    setState(() {
+      currentMode = FocusMode.study;
+      remainingSeconds = studyMinutes * 60;
+    });
+
+    isPhaseTransitioning = false;
+    startTimer();
+  }
+
+  Future<void> _showBreakPopup() async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        Timer(const Duration(seconds: 2), () {
+          final NavigatorState navigator = Navigator.of(dialogContext);
+          if (navigator.mounted && navigator.canPop()) {
+            navigator.pop();
+          }
+        });
+
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Break Time!',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    'lib/assets/break.gif',
+                    height: 180,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> stopTimer() async {
     timer?.cancel();
+    timer = null;
     await _commitCurrentStudySegment();
-    setState(() => isRunning = false);
-  }
 
-  Future<void> resetTimer() async {
-    timer?.cancel();
-    await _commitCurrentStudySegment();
+    isPhaseTransitioning = false;
     setState(() {
       isRunning = false;
       currentMode = FocusMode.study;
@@ -226,43 +328,35 @@ class _FocusMainState extends State<_FocusMain> {
     });
   }
 
-  Widget _buildTimeBox(String text) {
-    return Container(
-      height: 70,
-      width: 70,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.black, width: 1.5),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Center(
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
-            color: Colors.green,
-          ),
-        ),
-      ),
-    );
+  Future<void> resetTimer() async {
+    timer?.cancel();
+    timer = null;
+    await _commitCurrentStudySegment();
+
+    isPhaseTransitioning = false;
+    setState(() {
+      isRunning = false;
+      currentMode = FocusMode.study;
+      remainingSeconds = studyMinutes * 60;
+    });
   }
 
-  Widget _buildBtn(String text, VoidCallback onTap,
-      {Color color = Colors.white}) {
+  Widget _buildButton(String text, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 130,
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: color,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(30),
           border: Border.all(color: Colors.black, width: 2),
         ),
         child: Center(
-          child: Text(text,
-              style: const TextStyle(fontWeight: FontWeight.bold)),
+          child: Text(
+            text,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
       ),
     );
@@ -270,12 +364,6 @@ class _FocusMainState extends State<_FocusMain> {
 
   @override
   Widget build(BuildContext context) {
-    int hrs = remainingSeconds ~/ 3600;
-    int mins = (remainingSeconds % 3600) ~/ 60;
-    int secs = remainingSeconds % 60;
-
-    String f(int v) => v.toString().padLeft(2, '0');
-
     return Scaffold(
       backgroundColor: const Color(0xFFF4F4F4),
       appBar: AppBar(
@@ -286,13 +374,14 @@ class _FocusMainState extends State<_FocusMain> {
         child: TaskBar(),
       ),
       body: SingleChildScrollView(
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Align(
-                alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
                   'THE\nFOCUS',
                   style: TextStyle(
@@ -341,7 +430,8 @@ class _FocusMainState extends State<_FocusMain> {
               Center(
                 child: Text(
                   'Study ${studyMinutes}m  |  Break ${breakMinutes}m',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  style:
+                      const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ),
               const SizedBox(height: 18),
@@ -354,12 +444,12 @@ class _FocusMainState extends State<_FocusMain> {
                     ? Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildButton('Stop', () {
-                            stopTimer();
+                          _buildButton('Stop', () async {
+                            await stopTimer();
                           }),
                           const SizedBox(width: 12),
-                          _buildButton('Reset', () {
-                            resetTimer();
+                          _buildButton('Reset', () async {
+                            await resetTimer();
                           }),
                         ],
                       )
@@ -369,14 +459,16 @@ class _FocusMainState extends State<_FocusMain> {
               ),
               const SizedBox(height: 22),
               Center(
-                child: Container(
+                child: SizedBox(
                   height: 220,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Image.asset(
-                      'lib/assets/animation.gif',
-                      fit: BoxFit.contain,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Image.asset(
+                        'lib/assets/animation.gif',
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 ),
@@ -399,43 +491,46 @@ class _FocusMainState extends State<_FocusMain> {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            if (studyLogs.isEmpty)
-              const Text("No study time logged yet.")
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: studyLogs.length > 8 ? 8 : studyLogs.length,
-                itemBuilder: (context, index) {
-                  final log = studyLogs[index];
-                  return Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
+              const SizedBox(height: 10),
+              if (studyLogs.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Text('No study time logged yet.'),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: studyLogs.length > 8 ? 8 : studyLogs.length,
+                  itemBuilder: (context, index) {
+                    final Map<String, dynamic> log = studyLogs[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 6,
                       ),
-                      child: Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(log['date']),
-                          Text(
-                            formatDuration(log['seconds']),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(log['date'] as String),
+                            Text(
+                              formatDuration(log['seconds'] as int),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-          ],
+                    );
+                  },
+                ),
+            ],
+          ),
         ),
       ),
     );

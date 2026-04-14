@@ -14,6 +14,7 @@ class Notes extends StatefulWidget {
 
 class _NotesState extends State<Notes> {
   static const String plannerPrefix = '__planner__::';
+  static const String todoPrefix = '__todo__::';
   static const int defaultBlockColorValue = 0xFF2196F3;
 
   final NoteDatabase database = NoteDatabase();
@@ -295,7 +296,8 @@ class _NotesState extends State<Notes> {
         continue;
       }
 
-      if (note.content.startsWith(plannerPrefix)) {
+      if (note.content.startsWith(plannerPrefix) ||
+          note.content.startsWith(todoPrefix)) {
         continue;
       }
 
