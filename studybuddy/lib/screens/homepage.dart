@@ -19,7 +19,8 @@ class Homepage extends StatefulWidget {
 
 class _HomepageState extends State<Homepage> {
   static const String plannerPrefix = '__planner__::';
-  static const String todoPrefix = '__todo__::';
+  static const String todoPrefix = '__studybuddy_home_todo__::';
+  static const String legacyTodoPrefix = '__todo__::';
 
   final NoteDatabase database = NoteDatabase();
 
@@ -49,11 +50,19 @@ class _HomepageState extends State<Homepage> {
   }
 
   _TodoPayload? _decodeTodo(String content) {
-    if (!content.startsWith(todoPrefix)) {
+    String? matchedPrefix;
+
+    if (content.startsWith(todoPrefix)) {
+      matchedPrefix = todoPrefix;
+    } else if (content.startsWith(legacyTodoPrefix)) {
+      matchedPrefix = legacyTodoPrefix;
+    }
+
+    if (matchedPrefix == null) {
       return null;
     }
 
-    final String raw = content.substring(todoPrefix.length);
+    final String raw = content.substring(matchedPrefix.length);
     final List<String> parts = raw.split('||');
 
     final String details = parts.isEmpty ? '' : parts.first;
