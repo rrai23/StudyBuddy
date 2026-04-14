@@ -29,5 +29,6 @@ flutter:
   assets: 
     - lib/assets/
     - lib/assets/animation.gif
+    - lib/assets/break.gif
 
   uses-material-design: true
