@@ -8,6 +8,7 @@ import 'package:studybuddy/models/note_data.dart';
 import 'package:studybuddy/models/note_database.dart';
 import 'package:studybuddy/screens/planner_empty_screen.dart';
 import 'package:studybuddy/screens/profile.dart';
+import 'package:studybuddy/shared/page_title.dart';
 import 'package:studybuddy/shared/taskbar.dart';
 
 class Homepage extends StatefulWidget {
@@ -334,7 +335,7 @@ class _HomepageState extends State<Homepage> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
-        automaticallyImplyLeading: true,
+        automaticallyImplyLeading: false,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       bottomNavigationBar: const BottomAppBar(
@@ -351,59 +352,49 @@ class _HomepageState extends State<Homepage> {
             child: Column(
               children: [
                 const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      greeting,
-                      textAlign: TextAlign.start,
-                      style: const TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w900,
-                        height: 1,
+                StudyBuddyPageTitle(
+                  title: greeting,
+                  subtitle: 'Welcome Back',
+                  padding: EdgeInsets.zero,
+                  trailing: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProfilePage(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.black, width: 2),
+                        color: Colors.white,
+                      ),
+                      child: ValueListenableBuilder<Box>(
+                        valueListenable: Hive.box('profileBox').listenable(),
+                        builder: (context, box, _) {
+                          final Uint8List? photo =
+                              _photoBytes(box.get('profilePhotoBase64') as String?);
+
+                          if (photo == null) {
+                            return const Icon(Icons.person, color: Colors.black);
+                          }
+
+                          return ClipOval(
+                            child: Image.memory(
+                              photo,
+                              fit: BoxFit.cover,
+                              width: 60,
+                              height: 60,
+                            ),
+                          );
+                        },
                       ),
                     ),
-                    const SizedBox(width: 40),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ProfilePage(),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.black, width: 2),
-                          color: Colors.white,
-                        ),
-                        child: ValueListenableBuilder<Box>(
-                          valueListenable: Hive.box('profileBox').listenable(),
-                          builder: (context, box, _) {
-                            final Uint8List? photo =
-                                _photoBytes(box.get('profilePhotoBase64') as String?);
-
-                            if (photo == null) {
-                              return const Icon(Icons.person, color: Colors.black);
-                            }
-
-                            return ClipOval(
-                              child: Image.memory(
-                                photo,
-                                fit: BoxFit.cover,
-                                width: 60,
-                                height: 60,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 25),
                 GestureDetector(

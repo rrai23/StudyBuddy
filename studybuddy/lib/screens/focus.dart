@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/intl.dart';
+import 'package:studybuddy/shared/page_title.dart';
 import 'package:studybuddy/shared/taskbar.dart';
 
 class FocusPage extends StatelessWidget {
@@ -24,6 +25,9 @@ class _FocusMain extends StatefulWidget {
 }
 
 class _FocusMainState extends State<_FocusMain> {
+  static const String _completedStatus = 'Completed';
+  static const String _stoppedStatus = 'Stopped Early';
+
   late final Box focusBox;
 
   Timer? timer;
@@ -77,25 +81,88 @@ class _FocusMainState extends State<_FocusMain> {
       totalStudiedSeconds = (focusBox.get('totalStudiedSeconds') as int?) ?? 0;
       completedSessionsCount = (focusBox.get('completedSessionsCount') as int?) ?? 0;
 
-      final dynamic rawSessions = focusBox.get('focusSessions');
-      if (rawSessions is List) {
-        focusSessions = List<Map<String, dynamic>>.from(
-          rawSessions.map(
-            (entry) => {
-              'start': entry['start']?.toString() ?? '',
-              'end': entry['end']?.toString() ?? '',
-              'durationSeconds': (entry['durationSeconds'] as int?) ?? 0,
-            },
-          ),
+      focusSessions = _normalizeSessions(focusBox.get('focusSessions'));
+
+      if (totalStudiedSeconds <= 0 && focusSessions.isNotEmpty) {
+        totalStudiedSeconds = focusSessions.fold<int>(
+          0,
+          (sum, session) => sum + ((session['durationSeconds'] as int?) ?? 0),
         );
-      } else {
-        focusSessions = [];
+      }
+
+      if (completedSessionsCount <= 0 && focusSessions.isNotEmpty) {
+        completedSessionsCount = focusSessions
+            .where((session) => (session['status']?.toString() ?? '') == _completedStatus)
+            .length;
       }
 
       _updateRemainingSeconds();
     } catch (e) {
       debugPrint('Failed to load focus state: $e');
     }
+  }
+
+  List<Map<String, dynamic>> _normalizeSessions(dynamic rawSessions) {
+    if (rawSessions is! List) {
+      return <Map<String, dynamic>>[];
+    }
+
+    final List<Map<String, dynamic>> normalized = <Map<String, dynamic>>[];
+
+    for (final dynamic item in rawSessions) {
+      if (item is! Map) {
+        continue;
+      }
+
+      final int duration = _toInt(item['durationSeconds']);
+      final String start = (item['start']?.toString() ?? '').trim();
+      final String end = (item['end']?.toString() ?? '').trim();
+      final String status = (item['status']?.toString() ?? '').trim();
+
+      if (duration <= 0) {
+        continue;
+      }
+
+      normalized.add(
+        <String, dynamic>{
+          'start': start,
+          'end': end,
+          'durationSeconds': duration,
+          'status': status.isEmpty ? _completedStatus : status,
+        },
+      );
+    }
+
+    normalized.sort((a, b) {
+      final DateTime? endA = DateTime.tryParse(a['end']?.toString() ?? '');
+      final DateTime? endB = DateTime.tryParse(b['end']?.toString() ?? '');
+
+      if (endA == null && endB == null) {
+        return 0;
+      }
+      if (endA == null) {
+        return 1;
+      }
+      if (endB == null) {
+        return -1;
+      }
+
+      return endB.compareTo(endA);
+    });
+
+    return normalized;
+  }
+
+  int _toInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   void _updateRemainingSeconds() {
@@ -350,22 +417,34 @@ class _FocusMainState extends State<_FocusMain> {
     breakSecondsCtl.dispose();
   }
 
-  Future<void> _saveCompletedStudySession() async {
-    if (currentStudySegmentSeconds <= 0) {
+  Future<void> _saveCompletedStudySession({required String status}) async {
+    if (currentStudySegmentSeconds <= 0 && activeStudySessionStartAt == null) {
       return;
     }
 
     try {
       final DateTime endTime = DateTime.now();
       final DateTime startTime = activeStudySessionStartAt ?? endTime.subtract(Duration(seconds: currentStudySegmentSeconds));
+      final int duration = currentStudySegmentSeconds > 0
+          ? currentStudySegmentSeconds
+          : endTime.difference(startTime).inSeconds;
 
-      totalStudiedSeconds += currentStudySegmentSeconds;
-      completedSessionsCount += 1;
+      if (duration <= 0) {
+        currentStudySegmentSeconds = 0;
+        activeStudySessionStartAt = null;
+        return;
+      }
+
+      totalStudiedSeconds += duration;
+      if (status == _completedStatus) {
+        completedSessionsCount += 1;
+      }
 
       focusSessions.insert(0, {
         'start': startTime.toIso8601String(),
         'end': endTime.toIso8601String(),
-        'durationSeconds': currentStudySegmentSeconds,
+        'durationSeconds': duration,
+        'status': status,
       });
 
       if (focusSessions.length > 200) {
@@ -471,8 +550,12 @@ class _FocusMainState extends State<_FocusMain> {
   }
 
   void startBreakTimer() {
-    if (isRunning || isPhaseTransitioning) {
+    if (isPhaseTransitioning) {
       return;
+    }
+
+    if (isRunning) {
+      pauseTimer();
     }
 
     setState(() {
@@ -538,6 +621,7 @@ class _FocusMainState extends State<_FocusMain> {
     isPhaseTransitioning = true;
     timer?.cancel();
     timer = null;
+    bool shouldAutoStartNext = false;
 
     if (mounted) {
       setState(() {
@@ -548,16 +632,17 @@ class _FocusMainState extends State<_FocusMain> {
 
     try {
       if (currentMode == FocusMode.study) {
-        await _saveCompletedStudySession();
+        await _saveCompletedStudySession(status: _completedStatus);
 
         if (!mounted) {
-          isPhaseTransitioning = false;
           return;
         }
 
         setState(() {
           currentMode = FocusMode.breakTime;
           _updateRemainingSeconds();
+          activeStudySessionStartAt = null;
+          currentStudySegmentSeconds = 0;
         });
 
         _showStatusMessage('Session complete! Taking a break now');
@@ -565,16 +650,12 @@ class _FocusMainState extends State<_FocusMain> {
 
         await Future.delayed(const Duration(milliseconds: 500));
 
-        if (mounted && !isPhaseTransitioning) {
-          isPhaseTransitioning = false;
-          startTimer();
-        }
+        shouldAutoStartNext = true;
         return;
       }
 
       if (currentMode == FocusMode.breakTime) {
         if (!mounted) {
-          isPhaseTransitioning = false;
           return;
         }
 
@@ -589,14 +670,16 @@ class _FocusMainState extends State<_FocusMain> {
 
         await Future.delayed(const Duration(milliseconds: 500));
 
-        if (mounted && !isPhaseTransitioning) {
-          isPhaseTransitioning = false;
-          startTimer();
-        }
+        shouldAutoStartNext = true;
       }
     } catch (e) {
-      isPhaseTransitioning = false;
       _showStatusMessage('Error occurred');  
+    } finally {
+      isPhaseTransitioning = false;
+
+      if (shouldAutoStartNext && mounted) {
+        startTimer();
+      }
     }
   }
 
@@ -661,6 +744,14 @@ class _FocusMainState extends State<_FocusMain> {
     timer?.cancel();
     timer = null;
 
+    final bool shouldSavePartialStudy =
+        currentMode == FocusMode.study &&
+        (currentStudySegmentSeconds > 0 || activeStudySessionStartAt != null);
+
+    if (shouldSavePartialStudy) {
+      await _saveCompletedStudySession(status: _stoppedStatus);
+    }
+
     setState(() {
       isRunning = false;
       isPaused = false;
@@ -695,8 +786,8 @@ class _FocusMainState extends State<_FocusMain> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 130,
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        constraints: const BoxConstraints(minWidth: 110, maxWidth: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
@@ -705,6 +796,8 @@ class _FocusMainState extends State<_FocusMain> {
         child: Center(
           child: Text(
             text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
@@ -759,16 +852,9 @@ class _FocusMainState extends State<_FocusMain> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'THE\nFOCUS',
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
+              const StudyBuddyPageTitle(
+                title: 'THE\nFOCUS',
+                subtitle: 'Deep Work Mode',
               ),
               const SizedBox(height: 20),
               Center(
@@ -937,6 +1023,15 @@ class _FocusMainState extends State<_FocusMain> {
                             Text(
                               'Duration: ${formatDuration(duration)}',
                               style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Status: ${(session['status']?.toString() ?? _completedStatus)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(

@@ -16,76 +16,79 @@ class PlannerTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _buildTabButton(
-          context,
-          text: 'today',
-          isSelected: selectedTab == 'today',
-          onTap: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const PlannerTodayScreen(),
-              ),
-            );
-          },
-        ),
-        const SizedBox(width: 10),
-        _buildTabButton(
-          context,
-          text: 'tomorrow',
-          isSelected: selectedTab == 'tomorrow',
-          onTap: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const PlannerTomorrowScreen(),
-              ),
-            );
-          },
-        ),
-        const SizedBox(width: 10),
-        _buildTabButton(
-          context,
-          text: 'all',
-          isSelected: selectedTab == 'all',
-          onTap: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const PlannerAllScreen(),
-              ),
-            );
-          },
-          blueSelected: true,
-        ),
-        const SizedBox(width: 10),
-        GestureDetector(
-          onTap: () {
-            if (onAdd != null) {
-              onAdd!();
-              return;
-            }
-
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const PlannerEmptyScreen(),
-              ),
-            );
-          },
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.black, width: 1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.add, size: 18),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildTabButton(
+            context,
+            text: 'today',
+            isSelected: selectedTab == 'today',
+            onTap: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PlannerTodayScreen(),
+                ),
+              );
+            },
           ),
-        ),
-      ],
+          const SizedBox(width: 10),
+          _buildTabButton(
+            context,
+            text: 'tomorrow',
+            isSelected: selectedTab == 'tomorrow',
+            onTap: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PlannerTomorrowScreen(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 10),
+          _buildTabButton(
+            context,
+            text: 'all',
+            isSelected: selectedTab == 'all',
+            onTap: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PlannerAllScreen(),
+                ),
+              );
+            },
+            blueSelected: true,
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: () {
+              if (onAdd != null) {
+                onAdd!();
+                return;
+              }
+
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PlannerEmptyScreen(),
+                ),
+              );
+            },
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black, width: 1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add, size: 18),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

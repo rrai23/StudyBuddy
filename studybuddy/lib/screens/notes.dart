@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:studybuddy/models/note_data.dart';
 import 'package:studybuddy/models/note_database.dart';
+import 'package:studybuddy/shared/page_title.dart';
 import 'package:studybuddy/shared/taskbar.dart';
 
 class Notes extends StatefulWidget {
@@ -312,39 +313,27 @@ class _NotesState extends State<Notes> {
         backgroundColor: Colors.transparent,
       ),
       backgroundColor: const Color(0xFFF5F5F5),
-      bottomNavigationBar: const BottomAppBar(child: TaskBar()),
+      bottomNavigationBar: const BottomAppBar(
+        child: TaskBar(),
+      ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'THE\nNOTES',
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
+          StudyBuddyPageTitle(
+            title: 'THE\nNOTES',
+            subtitle: 'Capture Ideas',
+            trailing: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.blue,
               ),
-              const SizedBox(width: 150),
-              Container(
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.blue,
-                ),
-                child: IconButton(
-                  onPressed: () => openNoteEditor(),
-                  icon: const Icon(Icons.add, color: Colors.white),
-                ),
+              child: IconButton(
+                onPressed: () => openNoteEditor(),
+                icon: const Icon(Icons.add, color: Colors.white),
               ),
-              const SizedBox(width: 10),
-            ],
+            ),
           ),
           const SizedBox(height: 30),
           Expanded(

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:studybuddy/models/note_data.dart';
 import 'package:studybuddy/models/note_database.dart';
 import 'package:studybuddy/screens/homepage.dart';
+import 'package:studybuddy/shared/page_title.dart';
 import 'package:studybuddy/shared/planner_tabs.dart';
 import 'package:studybuddy/shared/taskbar.dart';
 
@@ -341,16 +342,10 @@ class _PlannerBoardState extends State<PlannerBoard> {
             );
           },
         ),
-        title: const Text(
-          'THE PLANNER',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.8,
-          ),
-        ),
       ),
-      bottomNavigationBar: const BottomAppBar(child: TaskBar()),
+      bottomNavigationBar: const BottomAppBar(
+        child: TaskBar(),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -358,6 +353,12 @@ class _PlannerBoardState extends State<PlannerBoard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 6),
+              const StudyBuddyPageTitle(
+                title: 'THE\nPLANNER',
+                subtitle: 'Plan Your Sessions',
+                padding: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 14),
               PlannerTabs(
                 selectedTab: widget.selectedTab,
                 onAdd: () {

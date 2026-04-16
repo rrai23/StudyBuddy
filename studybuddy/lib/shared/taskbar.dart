@@ -4,7 +4,6 @@ import 'package:studybuddy/screens/notes.dart';
 import 'package:studybuddy/screens/homepage.dart';
 import 'package:studybuddy/screens/planner_empty_screen.dart';
 
-
 class TaskBar extends StatelessWidget {
   const TaskBar({super.key});
 
@@ -16,16 +15,14 @@ class TaskBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(50),
         border: Border.all(
           color: Colors.black,
-          width: 2,  
+          width: 2,
         ),
         color: Colors.green[100],
       ),
 
-
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-
           TaskIcon("lib/assets/home.png", () {
             Navigator.push(context, MaterialPageRoute(
               builder: (context) {
@@ -56,8 +53,7 @@ class TaskBar extends StatelessWidget {
             ));
           }),
 
-        ]
-       
+        ],
       ),
     );
   }
@@ -65,14 +61,14 @@ class TaskBar extends StatelessWidget {
 
 class TaskIcon extends StatelessWidget {
   const TaskIcon(this.path , this.onTap, {super.key});
-  final String path; 
-  final VoidCallback onTap;  
+  final String path;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       child:  Image.asset(
-            path, 
+            path,
             width: 80,
             height: 80,
             fit: BoxFit.contain,
