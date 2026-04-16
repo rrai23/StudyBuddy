@@ -835,6 +835,7 @@ class _FocusMainState extends State<_FocusMain> {
   Widget build(BuildContext context) {
     final int todaySeconds = _getTodayTotalSeconds();
     final int weekSeconds = _getWeeklyTotalSeconds();
+    final bool isFocusedMode = isRunning && currentMode == FocusMode.study;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F4F4),
@@ -905,7 +906,73 @@ class _FocusMainState extends State<_FocusMain> {
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 22),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
+                    width: double.infinity,
+                    height: isFocusedMode ? 320 : 280,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Image.asset(
+                              'lib/assets/animation.gif',
+                              fit: BoxFit.contain,
+                              alignment: Alignment.center,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  height: isFocusedMode ? 320 : 280,
+                                  color: Colors.grey.shade200,
+                                  child: const Center(child: Text('Animation')),
+                                );
+                              },
+                            ),
+                          ),
+                          AnimatedOpacity(
+                            duration: const Duration(milliseconds: 250),
+                            opacity: 0,
+                            child: Container(color: Colors.black),
+                          ),
+                          if (isFocusedMode)
+                            Positioned(
+                              top: 12,
+                              right: 12,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: const Text(
+                                  'Focused Mode ON',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               Center(
                 child: _buildButton('Set Times', _setCustomTimes),
               ),
@@ -935,29 +1002,6 @@ class _FocusMainState extends State<_FocusMain> {
                           ],
                         ],
                       ),
-              ),
-              const SizedBox(height: 22),
-              Center(
-                child: SizedBox(
-                  height: 220,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Image.asset(
-                        'lib/assets/animation.gif',
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            height: 220,
-                            color: Colors.grey.shade200,
-                            child: const Center(child: Text('Animation')),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
               ),
               const SizedBox(height: 24),
               Center(

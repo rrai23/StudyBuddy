@@ -390,7 +390,7 @@ class _PlannerBoardState extends State<PlannerBoard> {
                         return Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Color(entry.note.blockColorValue).withValues(alpha: 0.16),
+                            color: Color(entry.note.blockColorValue).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(22),
                             border: Border.all(color: Colors.black45, width: 1),
                           ),
