@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:studybuddy/models/note_data.dart';
 import 'package:studybuddy/models/note_database.dart';
 import 'package:studybuddy/screens/homepage.dart';
+import 'package:studybuddy/shared/app_palette.dart';
 import 'package:studybuddy/shared/page_title.dart';
 import 'package:studybuddy/shared/planner_tabs.dart';
 import 'package:studybuddy/shared/taskbar.dart';
@@ -325,9 +326,9 @@ class _PlannerBoardState extends State<PlannerBoard> {
     final Box<NoteData> box = Hive.box<NoteData>('notesBox');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F3F3),
+      backgroundColor: AppPalette.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF3F3F3),
+        backgroundColor: AppPalette.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -392,7 +393,7 @@ class _PlannerBoardState extends State<PlannerBoard> {
                           decoration: BoxDecoration(
                             color: Color(entry.note.blockColorValue).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(22),
-                            border: Border.all(color: Colors.black45, width: 1),
+                            border: Border.all(color: AppPalette.primaryBorder, width: 1),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:studybuddy/models/note_data.dart';
 import 'package:studybuddy/models/note_database.dart';
+import 'package:studybuddy/shared/app_palette.dart';
 import 'package:studybuddy/shared/page_title.dart';
 import 'package:studybuddy/shared/taskbar.dart';
 
@@ -312,7 +313,7 @@ class _NotesState extends State<Notes> {
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppPalette.background,
       bottomNavigationBar: const BottomAppBar(
         child: TaskBar(),
       ),
@@ -327,7 +328,7 @@ class _NotesState extends State<Notes> {
             trailing: Container(
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.blue,
+                color: AppPalette.primary,
               ),
               child: IconButton(
                 onPressed: () => openNoteEditor(),

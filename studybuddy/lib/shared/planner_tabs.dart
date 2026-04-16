@@ -3,6 +3,7 @@ import '../screens/planner_empty_screen.dart';
 import '../screens/planner_today_screen.dart';
 import '../screens/planner_tomorrow_screen.dart';
 import '../screens/planner_all_screen.dart';
+import 'package:studybuddy/shared/app_palette.dart';
 
 class PlannerTabs extends StatelessWidget {
   final String selectedTab;
@@ -105,11 +106,11 @@ class PlannerTabs extends StatelessWidget {
 
     if (isSelected) {
       if (blueSelected) {
-        fillColor = const Color(0xFF1A26FF);
-        borderColor = const Color(0xFF1A26FF);
+        fillColor = AppPalette.primary;
+        borderColor = AppPalette.primary;
         textColor = Colors.white;
       } else {
-        fillColor = const Color(0xFFD6D6D6);
+        fillColor = AppPalette.primarySoft;
       }
     }
 

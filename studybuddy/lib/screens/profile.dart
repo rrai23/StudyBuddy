@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:studybuddy/shared/app_palette.dart';
 import 'package:studybuddy/shared/taskbar.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -168,7 +169,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final Uint8List? photoBytes = _profilePhotoBytes();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppPalette.background,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -240,7 +241,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               height: 84,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.green.shade200,
+                                color: AppPalette.primarySoft,
                                 border: Border.all(color: Colors.black, width: 2),
                                 image: photoBytes != null
                                     ? DecorationImage(

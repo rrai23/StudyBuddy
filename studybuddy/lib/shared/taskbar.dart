@@ -3,6 +3,7 @@ import 'package:studybuddy/screens/focus.dart';
 import 'package:studybuddy/screens/notes.dart';
 import 'package:studybuddy/screens/homepage.dart';
 import 'package:studybuddy/screens/planner_empty_screen.dart';
+import 'package:studybuddy/shared/app_palette.dart';
 
 class TaskBar extends StatelessWidget {
   const TaskBar({super.key});
@@ -17,7 +18,7 @@ class TaskBar extends StatelessWidget {
           color: Colors.black,
           width: 2,
         ),
-        color: Colors.green[100],
+        color: AppPalette.primarySoft,
       ),
 
       child: Row(

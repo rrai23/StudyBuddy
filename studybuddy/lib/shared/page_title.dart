@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:studybuddy/shared/app_palette.dart';
 
 class StudyBuddyPageTitle extends StatelessWidget {
   const StudyBuddyPageTitle({
@@ -31,7 +32,7 @@ class StudyBuddyPageTitle extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.1,
-                    color: Color(0xFF546E7A),
+                    color: AppPalette.textMuted,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -41,7 +42,7 @@ class StudyBuddyPageTitle extends StatelessWidget {
                     fontSize: 34,
                     fontWeight: FontWeight.w900,
                     height: 0.98,
-                    color: Color(0xFF1B1B1B),
+                    color: AppPalette.textPrimary,
                   ),
                 ),
               ],

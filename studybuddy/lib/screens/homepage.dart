@@ -8,6 +8,7 @@ import 'package:studybuddy/models/note_data.dart';
 import 'package:studybuddy/models/note_database.dart';
 import 'package:studybuddy/screens/planner_empty_screen.dart';
 import 'package:studybuddy/screens/profile.dart';
+import 'package:studybuddy/shared/app_palette.dart';
 import 'package:studybuddy/shared/page_title.dart';
 import 'package:studybuddy/shared/taskbar.dart';
 
@@ -48,6 +49,79 @@ class _HomepageState extends State<Homepage> {
     } catch (_) {
       return null;
     }
+  }
+
+  List<DateTime> _readFocusSessionDays(Box focusBox) {
+    final dynamic rawSessions = focusBox.get('focusSessions');
+    if (rawSessions is! List) {
+      return <DateTime>[];
+    }
+
+    final List<DateTime> days = <DateTime>[];
+    for (final dynamic raw in rawSessions) {
+      if (raw is! Map) {
+        continue;
+      }
+
+      final String endRaw = raw['end']?.toString() ?? '';
+      final DateTime? endAt = DateTime.tryParse(endRaw);
+      if (endAt == null) {
+        continue;
+      }
+
+      days.add(DateTime(endAt.year, endAt.month, endAt.day));
+    }
+
+    return days;
+  }
+
+  int _focusStreakDays(Box focusBox) {
+    final Set<DateTime> uniqueDays = _readFocusSessionDays(focusBox).toSet();
+    if (uniqueDays.isEmpty) {
+      return 0;
+    }
+
+    final DateTime now = DateTime.now();
+    DateTime cursor = DateTime(now.year, now.month, now.day);
+    int streak = 0;
+
+    while (uniqueDays.contains(cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+
+    return streak;
+  }
+
+  int _todayFocusSeconds(Box focusBox) {
+    final dynamic rawSessions = focusBox.get('focusSessions');
+    if (rawSessions is! List) {
+      return 0;
+    }
+
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    int totalSeconds = 0;
+
+    for (final dynamic raw in rawSessions) {
+      if (raw is! Map) {
+        continue;
+      }
+
+      final DateTime? endAt = DateTime.tryParse(raw['end']?.toString() ?? '');
+      if (endAt == null) {
+        continue;
+      }
+
+      final DateTime endDay = DateTime(endAt.year, endAt.month, endAt.day);
+      if (endDay != today) {
+        continue;
+      }
+
+      totalSeconds += (raw['durationSeconds'] as int?) ?? 0;
+    }
+
+    return totalSeconds;
   }
 
   _TodoPayload? _decodeTodo(String content) {
@@ -331,7 +405,7 @@ class _HomepageState extends State<Homepage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppPalette.background,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -371,7 +445,7 @@ class _HomepageState extends State<Homepage> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.black, width: 2),
-                        color: Colors.white,
+                        color: AppPalette.surface,
                       ),
                       child: ValueListenableBuilder<Box>(
                         valueListenable: Hive.box('profileBox').listenable(),
@@ -397,45 +471,124 @@ class _HomepageState extends State<Homepage> {
                   ),
                 ),
                 const SizedBox(height: 25),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const PlannerEmptyScreen(),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: Colors.black, width: 2),
-                    ),
-                    child: Column(
+                ValueListenableBuilder<Box>(
+                  valueListenable: Hive.box('focusBox').listenable(),
+                  builder: (context, focusBox, _) {
+                    final int streak = _focusStreakDays(focusBox);
+                    final int todaySeconds = _todayFocusSeconds(focusBox);
+                    final int studyTarget =
+                        (((focusBox.get('studyHours') as int?) ?? 0) * 3600) +
+                        (((focusBox.get('studyMinutes') as int?) ?? 25) * 60) +
+                        ((focusBox.get('studySeconds') as int?) ?? 0);
+                    final int safeTarget = studyTarget <= 0 ? 25 * 60 : studyTarget;
+                    final double ratio = (todaySeconds / safeTarget).clamp(0, 1);
+
+                    return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          dayName,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          dayNumber,
-                          style: const TextStyle(
-                            fontSize: 72,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          flex: 3,
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const PlannerEmptyScreen(),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              constraints: const BoxConstraints(minHeight: 214),
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: AppPalette.primarySoft,
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(color: Colors.black, width: 2),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    dayName,
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    dayNumber,
+                                    style: const TextStyle(
+                                      fontSize: 68,
+                                      fontWeight: FontWeight.bold,
+                                      height: 0.95,
+                                    ),
+                                  ),
+                                  Text(
+                                    month.toUpperCase(),
+                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                        Text(
-                          month.toUpperCase(),
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 214),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppPalette.surface,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.black, width: 2),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'FOCUS INSIGHTS',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    letterSpacing: 0.8,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppPalette.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  '$streak day streak',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(999),
+                                  child: LinearProgressIndicator(
+                                    value: ratio,
+                                    minHeight: 8,
+                                    backgroundColor: AppPalette.primarySoft,
+                                    valueColor: const AlwaysStoppedAnimation<Color>(
+                                      AppPalette.primary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '${(ratio * 100).round()}% of today\'s focus target',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppPalette.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
-                    ),
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 14),
                 const Divider(thickness: 1),
@@ -456,7 +609,7 @@ class _HomepageState extends State<Homepage> {
                           ),
                           IconButton(
                             onPressed: () => _openTodoEditor(),
-                            icon: const Icon(Icons.add_circle, color: Colors.green),
+                            icon: const Icon(Icons.add_circle, color: AppPalette.primary),
                           ),
                         ],
                       ),
@@ -466,7 +619,7 @@ class _HomepageState extends State<Homepage> {
                           margin: const EdgeInsets.only(bottom: 14),
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
+                            color: AppPalette.surface,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: Colors.black26),
                           ),
@@ -484,8 +637,8 @@ class _HomepageState extends State<Homepage> {
                               ),
                               decoration: BoxDecoration(
                                 color: todo.payload.isDone
-                                    ? Colors.green.shade50
-                                    : Colors.grey.shade200,
+                                    ? AppPalette.primarySoft
+                                    : AppPalette.surface,
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(color: Colors.black38),
                               ),
@@ -567,7 +720,7 @@ class _HomepageState extends State<Homepage> {
                           margin: const EdgeInsets.only(bottom: 14),
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
+                            color: AppPalette.surface,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: Colors.black26),
                           ),

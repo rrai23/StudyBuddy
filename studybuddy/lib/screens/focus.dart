@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/intl.dart';
+import 'package:studybuddy/shared/app_palette.dart';
 import 'package:studybuddy/shared/page_title.dart';
 import 'package:studybuddy/shared/taskbar.dart';
 
@@ -838,7 +839,7 @@ class _FocusMainState extends State<_FocusMain> {
     final bool isFocusedMode = isRunning && currentMode == FocusMode.study;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F4F4),
+      backgroundColor: AppPalette.background,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -863,7 +864,9 @@ class _FocusMainState extends State<_FocusMain> {
                   duration: const Duration(milliseconds: 300),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: currentMode == FocusMode.study ? Colors.green.shade100 : Colors.orange.shade100,
+                    color: currentMode == FocusMode.study
+                        ? AppPalette.primarySoft
+                        : AppPalette.surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Colors.black12),
                   ),
@@ -893,7 +896,9 @@ class _FocusMainState extends State<_FocusMain> {
                       style: TextStyle(
                         fontSize: 40,
                         fontWeight: FontWeight.w900,
-                        color: currentMode == FocusMode.study ? Colors.green : Colors.orange,
+                        color: currentMode == FocusMode.study
+                            ? AppPalette.primary
+                            : AppPalette.textPrimary,
                       ),
                     ),
                   ),
