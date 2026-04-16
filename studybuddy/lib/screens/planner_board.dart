@@ -3,6 +3,7 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:intl/intl.dart';
 import 'package:studybuddy/models/note_data.dart';
 import 'package:studybuddy/models/note_database.dart';
+import 'package:studybuddy/screens/homepage.dart';
 import 'package:studybuddy/shared/planner_tabs.dart';
 import 'package:studybuddy/shared/taskbar.dart';
 
@@ -324,6 +325,31 @@ class _PlannerBoardState extends State<PlannerBoard> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F3F3),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF3F3F3),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+              return;
+            }
+
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute<void>(builder: (_) => const Homepage()),
+            );
+          },
+        ),
+        title: const Text(
+          'THE PLANNER',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ),
       bottomNavigationBar: const BottomAppBar(child: TaskBar()),
       body: SafeArea(
         child: Padding(
@@ -331,16 +357,7 @@ class _PlannerBoardState extends State<PlannerBoard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 8),
-              const Text(
-                'THE\nPLANNER',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  height: 1.0,
-                ),
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 6),
               PlannerTabs(
                 selectedTab: widget.selectedTab,
                 onAdd: () {
