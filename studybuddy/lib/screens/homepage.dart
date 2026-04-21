@@ -483,110 +483,118 @@ class _HomepageState extends State<Homepage> {
                     final int safeTarget = studyTarget <= 0 ? 25 * 60 : studyTarget;
                     final double ratio = (todaySeconds / safeTarget).clamp(0, 1);
 
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const PlannerEmptyScreen(),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              constraints: const BoxConstraints(minHeight: 214),
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: AppPalette.primarySoft,
-                                borderRadius: BorderRadius.circular(30),
-                                border: Border.all(color: Colors.black, width: 2),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    dayName,
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    dayNumber,
-                                    style: const TextStyle(
-                                      fontSize: 68,
-                                      fontWeight: FontWeight.bold,
-                                      height: 0.95,
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PlannerEmptyScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 214),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                        decoration: BoxDecoration(
+                          color: AppPalette.primarySoft,
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: Colors.black, width: 2),
+                        ),
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      dayName.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1.2,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    month.toUpperCase(),
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      dayNumber,
+                                      style: const TextStyle(
+                                        fontSize: 52,
+                                        fontWeight: FontWeight.bold,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      month.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 16),
+                                child: VerticalDivider(
+                                  width: 2,
+                                  thickness: 2,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'FOCUS INSIGHTS',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        letterSpacing: 0.8,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppPalette.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      '$streak day streak',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: LinearProgressIndicator(
+                                        value: ratio,
+                                        minHeight: 8,
+                                        backgroundColor: AppPalette.primarySoft,
+                                        valueColor: const AlwaysStoppedAnimation<Color>(
+                                          AppPalette.primary,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      '${(ratio * 100).round()}% of today\'s focus target',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppPalette.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            constraints: const BoxConstraints(minHeight: 214),
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: AppPalette.surface,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: Colors.black, width: 2),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'FOCUS INSIGHTS',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    letterSpacing: 0.8,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppPalette.primary,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  '$streak day streak',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(999),
-                                  child: LinearProgressIndicator(
-                                    value: ratio,
-                                    minHeight: 8,
-                                    backgroundColor: AppPalette.primarySoft,
-                                    valueColor: const AlwaysStoppedAnimation<Color>(
-                                      AppPalette.primary,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  '${(ratio * 100).round()}% of today\'s focus target',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppPalette.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     );
                   },
                 ),
