@@ -14,12 +14,15 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStateMixin {
   late final Box profileBox;
   final ImagePicker picker = ImagePicker();
 
   bool isEditing = false;
   String? profilePhotoBase64;
+
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   final TextEditingController nameController = TextEditingController();
   final TextEditingController roleController = TextEditingController();
@@ -34,6 +37,18 @@ class _ProfilePageState extends State<ProfilePage> {
     super.initState();
     profileBox = Hive.box('profileBox');
     _loadProfile();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOut,
+      ),
+    );
+    _animationController.forward();
   }
 
   @override
@@ -45,6 +60,7 @@ class _ProfilePageState extends State<ProfilePage> {
     schoolController.dispose();
     courseController.dispose();
     joinedController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -119,45 +135,67 @@ class _ProfilePageState extends State<ProfilePage> {
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
-  Widget _buildIdField({
+  Widget _buildInfoField({
     required String label,
     required TextEditingController controller,
+    required IconData icon,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 90,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.5,
-              ),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppPalette.primarySoft,
+              borderRadius: BorderRadius.circular(10),
             ),
+            child: Icon(icon, size: 18, color: AppPalette.primary),
           ),
-          const Padding(
-            padding: EdgeInsets.only(top: 10),
-            child: Text(': ', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: isEditing
-                ? TextField(
-                    controller: controller,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: UnderlineInputBorder(),
-                    ),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      controller.text,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: AppPalette.textMuted,
                   ),
+                ),
+                const SizedBox(height: 4),
+                isEditing
+                    ? TextField(
+                        controller: controller,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 8),
+                          border: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black26),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black, width: 2),
+                          ),
+                        ),
+                      )
+                    : Text(
+                        controller.text,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              ],
+            ),
           ),
         ],
       ),
@@ -183,66 +221,86 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          TextButton.icon(
-            onPressed: () async {
-              if (isEditing) {
-                await _saveProfile();
-              }
-
-              setState(() {
-                isEditing = !isEditing;
-              });
-            },
-            icon: Icon(isEditing ? Icons.save : Icons.edit, color: Colors.black),
-            label: Text(
-              isEditing ? 'Save' : 'Edit',
-              style: const TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: isEditing
+                ? TextButton.icon(
+                    key: const ValueKey('save'),
+                    onPressed: () async {
+                      await _saveProfile();
+                      setState(() {
+                        isEditing = false;
+                      });
+                    },
+                    icon: const Icon(Icons.check, color: AppPalette.primary),
+                    label: const Text(
+                      'Save',
+                      style: TextStyle(
+                        color: AppPalette.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                : TextButton.icon(
+                    key: const ValueKey('edit'),
+                    onPressed: () {
+                      setState(() {
+                        isEditing = true;
+                      });
+                    },
+                    icon: const Icon(Icons.edit, color: Colors.black),
+                    label: const Text(
+                      'Edit',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
       bottomNavigationBar: const BottomAppBar(child: TaskBar()),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Center(
-          child: Container(
-            width: 420,
-            constraints: const BoxConstraints(maxWidth: 500),
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Colors.black, width: 2.2),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x22000000),
-                  blurRadius: 12,
-                  offset: Offset(0, 6),
-                ),
-              ],
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Column(
-                        children: [
-                          GestureDetector(
-                            onTap: isEditing ? _pickProfilePhoto : null,
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Center(
+            child: Container(
+              width: 420,
+              constraints: const BoxConstraints(maxWidth: 500),
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: AppPalette.surface,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: Colors.black, width: 2.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        GestureDetector(
+                          onTap: isEditing ? _pickProfilePhoto : null,
+                          child: Hero(
+                            tag: 'profilePhoto',
                             child: Container(
-                              width: 84,
-                              height: 84,
+                              width: 100,
+                              height: 100,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: AppPalette.primarySoft,
-                                border: Border.all(color: Colors.black, width: 2),
+                                border: Border.all(color: Colors.black, width: 2.5),
                                 image: photoBytes != null
                                     ? DecorationImage(
                                         image: MemoryImage(photoBytes),
@@ -255,7 +313,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       child: Text(
                                         _initials(),
                                         style: const TextStyle(
-                                          fontSize: 30,
+                                          fontSize: 36,
                                           fontWeight: FontWeight.w900,
                                           color: Colors.black,
                                         ),
@@ -264,71 +322,122 @@ class _ProfilePageState extends State<ProfilePage> {
                                   : null,
                             ),
                           ),
-                          if (isEditing)
-                            TextButton.icon(
-                              onPressed: _pickProfilePhoto,
-                              icon: const Icon(Icons.photo_camera_outlined),
-                              label: const Text('Change Photo'),
+                        ),
+                        if (isEditing)
+                          GestureDetector(
+                            onTap: _pickProfilePhoto,
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: AppPalette.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                size: 16,
+                                color: Colors.white,
+                              ),
                             ),
-                        ],
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    isEditing
+                        ? TextField(
+                            controller: nameController,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              height: 1.1,
+                            ),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              border: UnderlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 20),
+                            ),
+                          )
+                        : Text(
+                            nameController.text,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              height: 1.1,
+                            ),
+                          ),
+                    const SizedBox(height: 6),
+                    isEditing
+                        ? TextField(
+                            controller: roleController,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black54,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              border: UnderlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 20),
+                            ),
+                          )
+                        : Text(
+                            roleController.text,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black54,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppPalette.primarySoft,
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            isEditing
-                                ? TextField(
-                                    controller: nameController,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.1,
-                                    ),
-                                    decoration: const InputDecoration(
-                                      isDense: true,
-                                      border: UnderlineInputBorder(),
-                                    ),
-                                  )
-                                : Text(
-                                    nameController.text,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.1,
-                                    ),
-                                  ),
-                            const SizedBox(height: 4),
-                            isEditing
-                                ? TextField(
-                                    controller: roleController,
-                                    decoration: const InputDecoration(
-                                      isDense: true,
-                                      border: UnderlineInputBorder(),
-                                    ),
-                                  )
-                                : Text(
-                                    roleController.text,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black54,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                          ],
+                      child: Text(
+                        'STUDENT INFORMATION',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1,
+                          color: AppPalette.primary,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(thickness: 1.2),
-                  const SizedBox(height: 12),
-                  _buildIdField(label: 'ID', controller: idController),
-                  _buildIdField(label: 'EMAIL', controller: emailController),
-                  _buildIdField(label: 'SCHOOL', controller: schoolController),
-                  _buildIdField(label: 'COURSE', controller: courseController),
-                  _buildIdField(label: 'JOINED', controller: joinedController),
-                ],
+                    ),
+                    const SizedBox(height: 20),
+                    _buildInfoField(
+                      label: 'STUDENT ID',
+                      controller: idController,
+                      icon: Icons.badge_outlined,
+                    ),
+                    _buildInfoField(
+                      label: 'EMAIL',
+                      controller: emailController,
+                      icon: Icons.email_outlined,
+                    ),
+                    _buildInfoField(
+                      label: 'SCHOOL',
+                      controller: schoolController,
+                      icon: Icons.school_outlined,
+                    ),
+                    _buildInfoField(
+                      label: 'COURSE',
+                      controller: courseController,
+                      icon: Icons.book_outlined,
+                    ),
+                    _buildInfoField(
+                      label: 'JOINED',
+                      controller: joinedController,
+                      icon: Icons.calendar_today_outlined,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
