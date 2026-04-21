@@ -288,76 +288,263 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
     );
     bool isDone = existing?.payload.isDone ?? false;
 
-    await showDialog<void>(
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (dialogContext) {
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(isEditing ? 'Edit Task' : 'Add Task'),
-              content: SingleChildScrollView(
+            return Container(
+              margin: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppPalette.surface,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: Colors.black, width: 2),
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                  left: 24,
+                  right: 24,
+                  top: 20,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppPalette.primarySoft,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.edit_note,
+                            color: AppPalette.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Text(
+                          isEditing ? 'Edit Task' : 'New Task',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Task Title',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: AppPalette.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     TextField(
                       controller: titleController,
-                      decoration: const InputDecoration(labelText: 'Task title'),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'What do you need to do?',
+                        hintStyle: TextStyle(
+                          color: AppPalette.textMuted.withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        filled: true,
+                        fillColor: AppPalette.background,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Details (Optional)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: AppPalette.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     TextField(
                       controller: detailsController,
                       maxLines: 3,
-                      decoration: const InputDecoration(labelText: 'Details (optional)'),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Add any extra notes...',
+                        hintStyle: TextStyle(
+                          color: AppPalette.textMuted.withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        filled: true,
+                        fillColor: AppPalette.background,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 20),
+                    GestureDetector(
+                      onTap: () {
+                        setDialogState(() {
+                          isDone = !isDone;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDone
+                              ? AppPalette.primarySoft
+                              : AppPalette.background,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDone ? AppPalette.primary : Colors.black12,
+                            width: 2,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: isDone ? AppPalette.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isDone ? AppPalette.primary : Colors.black38,
+                                  width: 2,
+                                ),
+                              ),
+                              child: isDone
+                                  ? const Icon(
+                                      Icons.check,
+                                      size: 16,
+                                      color: Colors.white,
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              isDone ? 'Completed' : 'Mark as completed',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: isDone ? AppPalette.primary : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     Row(
                       children: [
-                        Checkbox(
-                          value: isDone,
-                          onChanged: (value) {
-                            setDialogState(() {
-                              isDone = value ?? false;
-                            });
-                          },
+                        if (isEditing)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                database.removeNote(existing!.index);
+                                Navigator.pop(context);
+                              },
+                              icon: const Icon(Icons.delete_outline, color: Colors.red),
+                              label: const Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.red),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                            ),
+                          ),
+                        if (isEditing) const SizedBox(width: 12),
+                        Expanded(
+                          flex: isEditing ? 2 : 1,
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              final String title = titleController.text.trim();
+                              final String details = detailsController.text.trim();
+
+                              if (title.isEmpty) {
+                                return;
+                              }
+
+                              final NoteData task = NoteData(
+                                title: title,
+                                content: _encodeTodo(details: details, isDone: isDone),
+                                date: DateTime.now().toIso8601String(),
+                                blockColorValue: 0xFF66BB6A,
+                              );
+
+                              if (isEditing) {
+                                database.updateNote(existing!.index, task);
+                              } else {
+                                database.addNote(task);
+                              }
+
+                              Navigator.pop(context);
+                            },
+                            icon: Icon(isEditing ? Icons.save : Icons.add),
+                            label: Text(isEditing ? 'Save Changes' : 'Create Task'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppPalette.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                          ),
                         ),
-                        const Text('Mark as completed'),
                       ],
                     ),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    final String title = titleController.text.trim();
-                    final String details = detailsController.text.trim();
-
-                    if (title.isEmpty) {
-                      return;
-                    }
-
-                    final NoteData task = NoteData(
-                      title: title,
-                      content: _encodeTodo(details: details, isDone: isDone),
-                      date: DateTime.now().toIso8601String(),
-                      blockColorValue: 0xFF66BB6A,
-                    );
-
-                    if (isEditing) {
-                      database.updateNote(existing.index, task);
-                    } else {
-                      database.addNote(task);
-                    }
-
-                    Navigator.pop(dialogContext);
-                  },
-                  child: Text(isEditing ? 'Save' : 'Create'),
-                ),
-              ],
             );
           },
         );
@@ -369,44 +556,181 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
   }
 
   Future<void> _openTodoViewer(_TodoEntry entry) async {
-    await showDialog<void>(
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(entry.note.title),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                entry.payload.isDone ? 'Status: Completed' : 'Status: Pending',
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 10),
-              Text(entry.payload.details.isEmpty ? 'No details.' : entry.payload.details),
-            ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          margin: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppPalette.surface,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: Colors.black, width: 2),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Close'),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: entry.payload.isDone
+                            ? AppPalette.primarySoft
+                            : AppPalette.background,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        entry.payload.isDone
+                            ? Icons.check_circle
+                            : Icons.pending_outlined,
+                        color: entry.payload.isDone
+                            ? AppPalette.primary
+                            : Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        entry.note.title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppPalette.background,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'STATUS',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                          color: AppPalette.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        entry.payload.isDone ? 'Completed' : 'Pending',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: entry.payload.isDone
+                              ? AppPalette.primary
+                              : Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (entry.payload.details.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppPalette.background,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'DETAILS',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: AppPalette.textMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          entry.payload.details,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _openTodoEditor(existing: entry);
+                        },
+                        icon: const Icon(Icons.edit),
+                        label: const Text('Edit'),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.black),
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.check),
+                        label: const Text('Done'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppPalette.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _openTodoEditor(existing: entry);
-              },
-              child: const Text('Edit'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () {
-                database.removeNote(entry.index);
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Delete'),
-            ),
-          ],
+          ),
         );
       },
     );
