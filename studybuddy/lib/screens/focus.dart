@@ -25,7 +25,7 @@ class _FocusMain extends StatefulWidget {
   State<_FocusMain> createState() => _FocusMainState();
 }
 
-class _FocusMainState extends State<_FocusMain> {
+class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
   static const String _completedStatus = 'Completed';
   static const String _stoppedStatus = 'Stopped Early';
 
@@ -44,68 +44,92 @@ class _FocusMainState extends State<_FocusMain> {
   bool isPaused = false;
   bool isPhaseTransitioning = false;
 
-  bool _isBreakDialogShowing = false;
+  FocusMode _currentMode = FocusMode.study;
 
-  int _controlVersion = 0;
+  int _studyHours = 0;
+  int _studyMinutes = 25;
+  int _studySeconds = 0;
 
-  FocusMode currentMode = FocusMode.study;
+  int _breakHours = 0;
+  int _breakMinutes = 5;
+  int _breakSeconds = 0;
 
-  int studyHours = 0;
-  int studyMinutes = 25;
-  int studySeconds = 0;
+  int _remainingSeconds = 25 * 60;
 
-  int breakHours = 0;
-  int breakMinutes = 5;
-  int breakSeconds = 0;
+  int _totalStudiedSeconds = 0;
+  int _currentStudySegmentSeconds = 0;
+  int _completedSessionsCount = 0;
 
-  int remainingSeconds = 25 * 60;
+  DateTime? _activeStudySessionStartAt;
 
-  int totalStudiedSeconds = 0;
-  int currentStudySegmentSeconds = 0;
-  int completedSessionsCount = 0;
+  List<Map<String, dynamic>> _focusSessions = [];
 
-  DateTime? activeStudySessionStartAt;
-
-  List<Map<String, dynamic>> focusSessions = [];
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     focusBox = Hive.box('focusBox');
     _loadSavedFocusState();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(
+        parent: _pulseController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: Curves.easeOut,
+      ),
+    );
+    _fadeController.forward();
   }
 
   @override
   void dispose() {
     timer?.cancel();
-    _saveSessionState();
     super.dispose();
   }
 
   void _loadSavedFocusState() {
     try {
-      studyHours = (focusBox.get('studyHours') as int?) ?? 0;
-      studyMinutes = (focusBox.get('studyMinutes') as int?) ?? 25;
-      studySeconds = (focusBox.get('studySeconds') as int?) ?? 0;
+      _studyHours = (focusBox.get('studyHours') as int?) ?? 0;
+      _studyMinutes = (focusBox.get('studyMinutes') as int?) ?? 25;
+      _studySeconds = (focusBox.get('studySeconds') as int?) ?? 0;
 
-      breakHours = (focusBox.get('breakHours') as int?) ?? 0;
-      breakMinutes = (focusBox.get('breakMinutes') as int?) ?? 5;
-      breakSeconds = (focusBox.get('breakSeconds') as int?) ?? 0;
+      _breakHours = (focusBox.get('breakHours') as int?) ?? 0;
+      _breakMinutes = (focusBox.get('breakMinutes') as int?) ?? 5;
+      _breakSeconds = (focusBox.get('breakSeconds') as int?) ?? 0;
 
-      totalStudiedSeconds = (focusBox.get('totalStudiedSeconds') as int?) ?? 0;
-      completedSessionsCount = (focusBox.get('completedSessionsCount') as int?) ?? 0;
+      _totalStudiedSeconds = (focusBox.get('totalStudiedSeconds') as int?) ?? 0;
+      _completedSessionsCount = (focusBox.get('completedSessionsCount') as int?) ?? 0;
 
-      focusSessions = _normalizeSessions(focusBox.get('focusSessions'));
+      _focusSessions = _normalizeSessions(focusBox.get('focusSessions'));
 
-      if (totalStudiedSeconds <= 0 && focusSessions.isNotEmpty) {
-        totalStudiedSeconds = focusSessions.fold<int>(
+      if (_totalStudiedSeconds <= 0 && _focusSessions.isNotEmpty) {
+        _totalStudiedSeconds = _focusSessions.fold<int>(
           0,
           (sum, session) => sum + ((session['durationSeconds'] as int?) ?? 0),
         );
       }
 
-      if (completedSessionsCount <= 0 && focusSessions.isNotEmpty) {
-        completedSessionsCount = focusSessions
+      if (_completedSessionsCount <= 0 && _focusSessions.isNotEmpty) {
+        _completedSessionsCount = _focusSessions
             .where((session) => (session['status']?.toString() ?? '') == _completedStatus)
             .length;
       }
@@ -281,32 +305,32 @@ class _FocusMainState extends State<_FocusMain> {
   }
 
   void _updateRemainingSeconds() {
-    if (currentMode == FocusMode.study) {
-      remainingSeconds = (studyHours * 3600) + (studyMinutes * 60) + studySeconds;
+    if (_currentMode == FocusMode.study) {
+      _remainingSeconds = (_studyHours * 3600) + (_studyMinutes * 60) + _studySeconds;
     } else {
-      remainingSeconds = (breakHours * 3600) + (breakMinutes * 60) + breakSeconds;
+      _remainingSeconds = (_breakHours * 3600) + (_breakMinutes * 60) + _breakSeconds;
     }
   }
 
   void _prepareStudyMode() {
-    currentMode = FocusMode.study;
+    _currentMode = FocusMode.study;
     _updateRemainingSeconds();
   }
 
   void _prepareBreakMode() {
-    currentMode = FocusMode.breakTime;
+    _currentMode = FocusMode.breakTime;
     _updateRemainingSeconds();
   }
 
   Future<void> _saveSettings() async {
     try {
-      await focusBox.put('studyHours', studyHours);
-      await focusBox.put('studyMinutes', studyMinutes);
-      await focusBox.put('studySeconds', studySeconds);
+      await focusBox.put('studyHours', _studyHours);
+      await focusBox.put('studyMinutes', _studyMinutes);
+      await focusBox.put('studySeconds', _studySeconds);
 
-      await focusBox.put('breakHours', breakHours);
-      await focusBox.put('breakMinutes', breakMinutes);
-      await focusBox.put('breakSeconds', breakSeconds);
+      await focusBox.put('breakHours', _breakHours);
+      await focusBox.put('breakMinutes', _breakMinutes);
+      await focusBox.put('breakSeconds', _breakSeconds);
     } catch (e) {
       debugPrint('Failed to save focus settings: $e');
     }
@@ -331,15 +355,15 @@ class _FocusMainState extends State<_FocusMain> {
 
   Future<void> _saveStats() async {
     try {
-      await focusBox.put('totalStudiedSeconds', totalStudiedSeconds);
-      await focusBox.put('focusSessions', focusSessions);
-      await focusBox.put('completedSessionsCount', completedSessionsCount);
+      await focusBox.put('totalStudiedSeconds', _totalStudiedSeconds);
+      await focusBox.put('focusSessions', _focusSessions);
+      await focusBox.put('completedSessionsCount', _completedSessionsCount);
     } catch (e) {
       debugPrint('Failed to save focus stats: $e');
     }
   }
 
-  String formatClock(int totalSeconds) {
+  String _formatClock(int totalSeconds) {
     final int hours = totalSeconds ~/ 3600;
     final int minutes = (totalSeconds % 3600) ~/ 60;
     final int seconds = totalSeconds % 60;
@@ -349,7 +373,7 @@ class _FocusMainState extends State<_FocusMain> {
     return '${two(hours)}:${two(minutes)}:${two(seconds)}';
   }
 
-  String formatDuration(int totalSeconds) {
+  String _formatDuration(int totalSeconds) {
     final int hours = totalSeconds ~/ 3600;
     final int minutes = (totalSeconds % 3600) ~/ 60;
     final int seconds = totalSeconds % 60;
@@ -386,153 +410,286 @@ class _FocusMainState extends State<_FocusMain> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(
+            message,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          backgroundColor: Colors.black87,
         ),
       );
   }
 
-  Future<void> _setCustomTimes() async {
-    int tempStudyHours = studyHours;
-    int tempStudyMinutes = studyMinutes;
-    int tempStudySeconds = studySeconds;
+  Widget _buildTimeField({
+    required String label,
+    required int value,
+    required ValueChanged<int> onChanged,
+  }) {
+    final TextEditingController controller = TextEditingController(text: value.toString());
 
-    int tempBreakHours = breakHours;
-    int tempBreakMinutes = breakMinutes;
-    int tempBreakSeconds = breakSeconds;
-
-    final TextEditingController studyHoursCtl = TextEditingController(text: tempStudyHours.toString());
-    final TextEditingController studyMinutesCtl = TextEditingController(text: tempStudyMinutes.toString());
-    final TextEditingController studySecondsCtl = TextEditingController(text: tempStudySeconds.toString());
-
-    final TextEditingController breakHoursCtl = TextEditingController(text: tempBreakHours.toString());
-    final TextEditingController breakMinutesCtl = TextEditingController(text: tempBreakMinutes.toString());
-    final TextEditingController breakSecondsCtl = TextEditingController(text: tempBreakSeconds.toString());
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Set Custom Times'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Study Time',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: studyHoursCtl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Hours'),
-                        onChanged: (value) => tempStudyHours = int.tryParse(value) ?? 0,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: studyMinutesCtl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Minutes'),
-                        onChanged: (value) => tempStudyMinutes = int.tryParse(value) ?? 0,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: studySecondsCtl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Seconds'),
-                        onChanged: (value) => tempStudySeconds = int.tryParse(value) ?? 0,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Break Time',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: breakHoursCtl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Hours'),
-                        onChanged: (value) => tempBreakHours = int.tryParse(value) ?? 0,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: breakMinutesCtl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Minutes'),
-                        onChanged: (value) => tempBreakMinutes = int.tryParse(value) ?? 0,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: breakSecondsCtl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Seconds'),
-                        onChanged: (value) => tempBreakSeconds = int.tryParse(value) ?? 0,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: AppPalette.textMuted,
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
             ),
-            FilledButton(
-              onPressed: () {
-                if (tempStudyHours == 0 && tempStudyMinutes == 0 && tempStudySeconds == 0) {
-                  _showStatusMessage('Study time must be greater than 0');
-                  return;
-                }
-                if (tempBreakHours == 0 && tempBreakMinutes == 0 && tempBreakSeconds == 0) {
-                  _showStatusMessage('Break time must be greater than 0');
-                  return;
-                }
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: AppPalette.background,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            onChanged: (val) => onChanged(int.tryParse(val) ?? 0),
+          ),
+        ],
+      ),
+    );
+  }
 
-                timer?.cancel();
-                timer = null;
+  Future<void> _setCustomTimes() async {
+    if (_isRunning || _isPaused) {
+      _showStatusMessage('Stop the timer first to change times');
+      return;
+    }
 
-                setState(() {
-                  isRunning = false;
-                  isPaused = false;
-                  isPhaseTransitioning = false;
+    int tempStudyHours = _studyHours;
+    int tempStudyMinutes = _studyMinutes;
+    int tempStudySeconds = _studySeconds;
 
-                  studyHours = tempStudyHours;
-                  studyMinutes = tempStudyMinutes;
-                  studySeconds = tempStudySeconds;
+    int tempBreakHours = _breakHours;
+    int tempBreakMinutes = _breakMinutes;
+    int tempBreakSeconds = _breakSeconds;
 
-                  breakHours = tempBreakHours;
-                  breakMinutes = tempBreakMinutes;
-                  breakSeconds = tempBreakSeconds;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Container(
+              margin: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppPalette.surface,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: Colors.black, width: 2),
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                  left: 24,
+                  right: 24,
+                  top: 20,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppPalette.primarySoft,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.timer,
+                            color: AppPalette.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        const Text(
+                          'Set Custom Times',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppPalette.primarySoft,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.local_fire_department,
+                            size: 18,
+                            color: AppPalette.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'STUDY TIME',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1,
+                              color: AppPalette.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        _buildTimeField(
+                          label: 'HOURS',
+                          value: tempStudyHours,
+                          onChanged: (val) => tempStudyHours = val.clamp(0, 23),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildTimeField(
+                          label: 'MINUTES',
+                          value: tempStudyMinutes,
+                          onChanged: (val) => tempStudyMinutes = val.clamp(0, 59),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildTimeField(
+                          label: 'SECONDS',
+                          value: tempStudySeconds,
+                          onChanged: (val) => tempStudySeconds = val.clamp(0, 59),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppPalette.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.black12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.coffee,
+                            size: 18,
+                            color: AppPalette.textMuted,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'BREAK TIME',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1,
+                              color: AppPalette.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        _buildTimeField(
+                          label: 'HOURS',
+                          value: tempBreakHours,
+                          onChanged: (val) => tempBreakHours = val.clamp(0, 23),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildTimeField(
+                          label: 'MINUTES',
+                          value: tempBreakMinutes,
+                          onChanged: (val) => tempBreakMinutes = val.clamp(0, 59),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildTimeField(
+                          label: 'SECONDS',
+                          value: tempBreakSeconds,
+                          onChanged: (val) => tempBreakSeconds = val.clamp(0, 59),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.black),
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              final int totalStudySeconds = (tempStudyHours * 3600) + (tempStudyMinutes * 60) + tempStudySeconds;
+                              final int totalBreakSeconds = (tempBreakHours * 3600) + (tempBreakMinutes * 60) + tempBreakSeconds;
 
-                  _prepareStudyMode();
-                  _updateRemainingSeconds();
-                  currentStudySegmentSeconds = 0;
-                  activeStudySessionStartAt = null;
-                });
+                              if (totalStudySeconds <= 0) {
+                                _showStatusMessage('Study time must be greater than 0');
+                                return;
+                              }
+                              if (totalBreakSeconds <= 0) {
+                                _showStatusMessage('Break time must be greater than 0');
+                                return;
+                              }
+
+                              setState(() {
+                                _studyHours = tempStudyHours;
+                                _studyMinutes = tempStudyMinutes;
+                                _studySeconds = tempStudySeconds;
+
+                                _breakHours = tempBreakHours;
+                                _breakMinutes = tempBreakMinutes;
+                                _breakSeconds = tempBreakSeconds;
+
+                                _prepareStudyMode();
+                                _currentStudySegmentSeconds = 0;
+                                _activeStudySessionStartAt = null;
+                              });
 
                 _saveSettings();
-                _clearSessionState();
                 Navigator.pop(context);
               },
               child: const Text('Save'),
@@ -550,50 +707,42 @@ class _FocusMainState extends State<_FocusMain> {
     breakSecondsCtl.dispose();
   }
 
-  Future<void> _saveCompletedStudySession({
-    required String status,
-    DateTime? startAtOverride,
-    int? durationSecondsOverride,
-  }) async {
-    final int effectiveSegmentSeconds = durationSecondsOverride ?? currentStudySegmentSeconds;
-    final DateTime? effectiveStartAt = startAtOverride ?? activeStudySessionStartAt;
-
-    if (effectiveSegmentSeconds <= 0 && effectiveStartAt == null) {
+  Future<void> _saveCompletedStudySession({required String status}) async {
+    if (currentStudySegmentSeconds <= 0 && activeStudySessionStartAt == null) {
       return;
     }
 
     try {
       final DateTime endTime = DateTime.now();
-      final DateTime startTime = effectiveStartAt ?? endTime.subtract(Duration(seconds: effectiveSegmentSeconds));
-      final int duration = effectiveSegmentSeconds > 0
-          ? effectiveSegmentSeconds
+      final DateTime startTime = activeStudySessionStartAt ?? endTime.subtract(Duration(seconds: currentStudySegmentSeconds));
+      final int duration = currentStudySegmentSeconds > 0
+          ? currentStudySegmentSeconds
           : endTime.difference(startTime).inSeconds;
 
       if (duration <= 0) {
         currentStudySegmentSeconds = 0;
         activeStudySessionStartAt = null;
-        await _clearSessionState();
         return;
       }
 
-      totalStudiedSeconds += duration;
+      _totalStudiedSeconds += duration;
       if (status == _completedStatus) {
-        completedSessionsCount += 1;
+        _completedSessionsCount += 1;
       }
 
-      focusSessions.insert(0, {
+      _focusSessions.insert(0, {
         'start': startTime.toIso8601String(),
         'end': endTime.toIso8601String(),
         'durationSeconds': duration,
         'status': status,
       });
 
-      if (focusSessions.length > 200) {
-        focusSessions = focusSessions.sublist(0, 200);
+      if (_focusSessions.length > 200) {
+        _focusSessions = _focusSessions.sublist(0, 200);
       }
 
-      currentStudySegmentSeconds = 0;
-      activeStudySessionStartAt = null;
+      _currentStudySegmentSeconds = 0;
+      _activeStudySessionStartAt = null;
 
       await _saveStats();
       await _clearSessionState();
@@ -622,7 +771,7 @@ class _FocusMainState extends State<_FocusMain> {
     final DateTime today = DateTime(now.year, now.month, now.day);
 
     int total = 0;
-    for (final session in focusSessions) {
+    for (final session in _focusSessions) {
       try {
         final DateTime? end = DateTime.tryParse(session['end']?.toString() ?? '');
         if (end == null) continue;
@@ -644,7 +793,7 @@ class _FocusMainState extends State<_FocusMain> {
     final DateTime weekStart = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
 
     int total = 0;
-    for (final session in focusSessions) {
+    for (final session in _focusSessions) {
       try {
         final DateTime? end = DateTime.tryParse(session['end']?.toString() ?? '');
         if (end == null) continue;
@@ -660,22 +809,42 @@ class _FocusMainState extends State<_FocusMain> {
     return total;
   }
 
-  void startTimer() {
-    if (isRunning || isPhaseTransitioning) {
+  void _startTimer() {
+    if (_isRunning || _isPhaseTransitioning) {
       return;
     }
 
-    if (remainingSeconds <= 0) {
+    if (_remainingSeconds <= 0) {
       _updateRemainingSeconds();
     }
 
-    if (currentMode == FocusMode.study && activeStudySessionStartAt == null) {
-      activeStudySessionStartAt = DateTime.now();
+    if (_currentMode == FocusMode.study && _activeStudySessionStartAt == null) {
+      _activeStudySessionStartAt = DateTime.now();
     }
 
+    timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (isPhaseTransitioning || !isRunning) {
+        return;
+      }
+
+      setState(() {
+        if (remainingSeconds > 0) {
+          remainingSeconds--;
+
+          if (currentMode == FocusMode.study) {
+            currentStudySegmentSeconds++;
+          }
+        }
+      });
+
+      if (remainingSeconds <= 0 && !isPhaseTransitioning) {
+        _handlePhaseFinished();
+      }
+    });
+
     setState(() {
-      isRunning = true;
-      isPaused = false;
+      _isRunning = true;
+      _isPaused = false;
     });
 
     // Persist state at the moment we start/resume so we can advance correctly while off-page.
@@ -683,74 +852,69 @@ class _FocusMainState extends State<_FocusMain> {
 
     _startTickerSilently();
 
-    if (currentMode == FocusMode.study) {
-      _showStatusMessage('Focus started');
-    } else {
-      _showStatusMessage('Break started');
-    }
+    _showStatusMessage(_currentMode == FocusMode.study ? 'Focus started' : 'Break started');
   }
 
-  void startBreakTimer() {
-    if (isPhaseTransitioning) {
+  void _startBreakTimer() {
+    if (_isPhaseTransitioning) {
       return;
     }
 
-    if (isRunning) {
-      pauseTimer();
+    if (_isRunning) {
+      _pauseTimer();
     }
 
     setState(() {
       _prepareBreakMode();
-      currentStudySegmentSeconds = 0;
-      activeStudySessionStartAt = null;
+      _currentStudySegmentSeconds = 0;
+      _activeStudySessionStartAt = null;
     });
 
-    startTimer();
+    _startTimer();
   }
 
-  void startStudyTimer() {
-    if (isRunning || isPhaseTransitioning) {
+  void _startStudyTimer() {
+    if (_isRunning || _isPhaseTransitioning) {
       return;
     }
 
     setState(() {
       _prepareStudyMode();
-      currentStudySegmentSeconds = 0;
-      activeStudySessionStartAt = null;
+      _currentStudySegmentSeconds = 0;
+      _activeStudySessionStartAt = null;
     });
 
-    startTimer();
+    _startTimer();
   }
 
   String _primaryButtonLabel() {
-    if (isPaused) {
-      return currentMode == FocusMode.study ? 'Resume Focus' : 'Resume Break';
+    if (_isPaused) {
+      return _currentMode == FocusMode.study ? 'Resume Focus' : 'Resume Break';
     }
-
-    return currentMode == FocusMode.study ? 'Let\'s Focus!' : 'Start Break';
+    return _currentMode == FocusMode.study ? 'Let\'s Focus!' : 'Start Break';
   }
 
   String _secondaryButtonLabel() {
-    return currentMode == FocusMode.study ? 'Start Break' : 'Start Focus';
+    return _currentMode == FocusMode.study ? 'Start Break' : 'Start Focus';
   }
 
   VoidCallback _secondaryButtonAction() {
-    return currentMode == FocusMode.study ? startBreakTimer : startStudyTimer;
+    return _currentMode == FocusMode.study ? _startBreakTimer : _startStudyTimer;
   }
 
-  void pauseTimer() {
-    if (!isRunning) {
+  void _pauseTimer() {
+    if (!_isRunning) {
       return;
     }
 
     _controlVersion++;
 
-    timer?.cancel();
-    timer = null;
+    _timer?.cancel();
+    _timer = null;
 
     setState(() {
-      isRunning = false;
-      isPaused = true;
+      _isRunning = false;
+      _isPaused = true;
     });
 
     _saveSessionState();
@@ -758,7 +922,7 @@ class _FocusMainState extends State<_FocusMain> {
   }
 
   Future<void> _handlePhaseFinished() async {
-    if (isPhaseTransitioning) {
+    if (_isPhaseTransitioning) {
       return;
     }
 
@@ -774,11 +938,10 @@ class _FocusMainState extends State<_FocusMain> {
         isRunning = false;
         isPaused = false;
       });
-      await _saveSessionState();
     }
 
     try {
-      if (currentMode == FocusMode.study) {
+      if (_currentMode == FocusMode.study) {
         await _saveCompletedStudySession(status: _completedStatus);
 
         if (!mounted) {
@@ -786,47 +949,49 @@ class _FocusMainState extends State<_FocusMain> {
         }
 
         setState(() {
-          currentMode = FocusMode.breakTime;
+          _currentMode = FocusMode.breakTime;
           _updateRemainingSeconds();
-          activeStudySessionStartAt = null;
-          currentStudySegmentSeconds = 0;
+          _activeStudySessionStartAt = null;
+          _currentStudySegmentSeconds = 0;
+          _isRunning = false;
+          _isPaused = false;
         });
 
-        await _saveSessionState();
         _showStatusMessage('Session complete! Taking a break now');
         unawaited(_showBreakPopup());
 
-        await Future.delayed(const Duration(milliseconds: 500));
-
+        await Future.delayed(const Duration(seconds: 1));
         shouldAutoStartNext = true;
-        return;
-      }
-
-      if (currentMode == FocusMode.breakTime) {
+      } else if (_currentMode == FocusMode.breakTime) {
         if (!mounted) {
           return;
         }
 
         setState(() {
-          currentMode = FocusMode.study;
+          _currentMode = FocusMode.study;
           _updateRemainingSeconds();
-          activeStudySessionStartAt = null;
-          currentStudySegmentSeconds = 0;
+          _activeStudySessionStartAt = null;
+          _currentStudySegmentSeconds = 0;
+          _isRunning = false;
+          _isPaused = false;
         });
 
         await _saveSessionState();
         _showStatusMessage('Break complete! Back to focus');
 
-        await Future.delayed(const Duration(milliseconds: 500));
-
+        await Future.delayed(const Duration(seconds: 1));
         shouldAutoStartNext = true;
       }
     } catch (e) {
       _showStatusMessage('Error occurred');
     } finally {
-      isPhaseTransitioning = false;
+      if (mounted) {
+        setState(() {
+          _isPhaseTransitioning = false;
+        });
+      }
 
-      if (shouldAutoStartNext && mounted && _controlVersion == versionAtStart) {
+      if (shouldAutoStartNext && mounted) {
         startTimer();
       }
     }
@@ -845,45 +1010,70 @@ class _FocusMainState extends State<_FocusMain> {
     try {
       await showDialog<void>(
         context: context,
-        useRootNavigator: true,
-        barrierDismissible: true,
+        barrierDismissible: false,
         builder: (dialogContext) {
-          if (!scheduledAutoClose) {
-            scheduledAutoClose = true;
-            final NavigatorState navigator = Navigator.of(
-              dialogContext,
-              rootNavigator: true,
-            );
-            Future.delayed(const Duration(seconds: 2), () {
-              if (navigator.mounted && navigator.canPop()) {
-                navigator.pop();
-              }
-            });
-          }
+          Timer(const Duration(seconds: 2), () {
+            final NavigatorState navigator = Navigator.of(dialogContext);
+            if (navigator.mounted && navigator.canPop()) {
+              navigator.pop();
+            }
+          });
 
-          return Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Break Time!',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+        return Container(
+          margin: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppPalette.surface,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: Colors.black, width: 2),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      'lib/assets/break.gif',
-                      height: 180,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          height: 180,
+                  child: const Icon(
+                    Icons.coffee,
+                    size: 32,
+                    color: Colors.orange,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Break Time!',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Great work! Take a ${_breakMinutes}m break.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: AppPalette.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'lib/assets/break.gif',
+                    height: 160,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 160,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
                           color: Colors.orange.shade100,
                           child: const Center(
                             child: Text('Break Time!'),
@@ -900,14 +1090,12 @@ class _FocusMainState extends State<_FocusMain> {
       );
     } catch (e) {
       debugPrint('Failed to show break popup: $e');
-    } finally {
-      _isBreakDialogShowing = false;
     }
   }
 
-  Future<void> stopTimer() async {
-    timer?.cancel();
-    timer = null;
+  Future<void> _stopTimer() async {
+    _timer?.cancel();
+    _timer = null;
 
     // Cancels any pending auto-start (e.g., from phase transitions).
     _controlVersion++;
@@ -917,20 +1105,14 @@ class _FocusMainState extends State<_FocusMain> {
     final DateTime? startBeforeStop = activeStudySessionStartAt;
     final int segmentSecondsBeforeStop = currentStudySegmentSeconds;
     final bool shouldSavePartialStudy =
-        modeBeforeStop == FocusMode.study &&
-        (segmentSecondsBeforeStop > 0 || startBeforeStop != null);
+        currentMode == FocusMode.study &&
+        (currentStudySegmentSeconds > 0 || activeStudySessionStartAt != null);
 
-    if (mounted) {
-      setState(() {
-        isRunning = false;
-        isPaused = false;
-        isPhaseTransitioning = false;
-        _prepareStudyMode();
-        _updateRemainingSeconds();
-        currentStudySegmentSeconds = 0;
-        activeStudySessionStartAt = null;
-      });
-    } else {
+    if (shouldSavePartialStudy) {
+      await _saveCompletedStudySession(status: _stoppedStatus);
+    }
+
+    setState(() {
       isRunning = false;
       isPaused = false;
       isPhaseTransitioning = false;
@@ -938,40 +1120,16 @@ class _FocusMainState extends State<_FocusMain> {
       _updateRemainingSeconds();
       currentStudySegmentSeconds = 0;
       activeStudySessionStartAt = null;
-    }
-
-    // Ensure returning to this page will NOT resume a stopped session.
-    await _clearSessionState();
-
-    if (shouldSavePartialStudy) {
-      await _saveCompletedStudySession(
-        status: _stoppedStatus,
-        startAtOverride: startBeforeStop,
-        durationSecondsOverride: segmentSecondsBeforeStop,
-      );
-    }
+    });
 
     _showStatusMessage('Timer stopped');
   }
 
-  Future<void> resetTimer() async {
-    timer?.cancel();
-    timer = null;
+  Future<void> _resetTimer() async {
+    _timer?.cancel();
+    _timer = null;
 
-    // Cancels any pending auto-start (e.g., from phase transitions).
-    _controlVersion++;
-
-    if (mounted) {
-      setState(() {
-        isRunning = false;
-        isPaused = false;
-        isPhaseTransitioning = false;
-        _prepareStudyMode();
-        _updateRemainingSeconds();
-        currentStudySegmentSeconds = 0;
-        activeStudySessionStartAt = null;
-      });
-    } else {
+    setState(() {
       isRunning = false;
       isPaused = false;
       isPhaseTransitioning = false;
@@ -979,30 +1137,51 @@ class _FocusMainState extends State<_FocusMain> {
       _updateRemainingSeconds();
       currentStudySegmentSeconds = 0;
       activeStudySessionStartAt = null;
-    }
+    });
 
-    // Ensure returning to this page will NOT resume a reset session.
-    await _clearSessionState();
     _showStatusMessage('Timer reset');
   }
 
-  Widget _buildButton(String text, VoidCallback onTap) {
+  Widget _buildButton(String text, VoidCallback onTap, {Color? color, bool isPrimary = false}) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 110, maxWidth: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      onTap: _isPhaseTransitioning ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        constraints: const BoxConstraints(minWidth: 120, maxWidth: 170),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isPrimary ? AppPalette.primary : (color ?? Colors.white),
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.black, width: 2),
+          border: Border.all(
+            color: isPrimary ? AppPalette.primary : Colors.black,
+            width: 2,
+          ),
+          boxShadow: isPrimary
+              ? [
+                  BoxShadow(
+                    color: AppPalette.primary.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
         child: Center(
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+              color: isPrimary ? Colors.white : Colors.black,
+            ),
           ),
         ),
       ),
@@ -1012,25 +1191,73 @@ class _FocusMainState extends State<_FocusMain> {
   Widget _buildSummaryCard(String title, String value) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: AppPalette.surface,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.black12),
         ),
         child: Column(
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+                color: AppPalette.textMuted,
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               value,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppPalette.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.local_fire_department,
+            size: 40,
+            color: AppPalette.textMuted.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No completed focus sessions yet.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppPalette.textMuted.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Start studying to see your progress!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppPalette.textMuted.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1039,7 +1266,7 @@ class _FocusMainState extends State<_FocusMain> {
   Widget build(BuildContext context) {
     final int todaySeconds = _getTodayTotalSeconds();
     final int weekSeconds = _getWeeklyTotalSeconds();
-    final bool isFocusedMode = isRunning && currentMode == FocusMode.study;
+    final bool isFocusedMode = _isRunning && _currentMode == FocusMode.study;
 
     return Scaffold(
       backgroundColor: AppPalette.background,
@@ -1050,258 +1277,402 @@ class _FocusMainState extends State<_FocusMain> {
       bottomNavigationBar: const BottomAppBar(
         child: TaskBar(),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              const StudyBuddyPageTitle(
-                title: 'THE\nFOCUS',
-                subtitle: 'Deep Work Mode',
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: currentMode == FocusMode.study
-                        ? AppPalette.primarySoft
-                        : AppPalette.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.black12),
-                  ),
-                  child: Text(
-                    currentMode == FocusMode.study ? 'Study Time' : 'Break Time',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+                const StudyBuddyPageTitle(
+                  title: 'THE\nFOCUS',
+                  subtitle: 'Deep Work Mode',
+                ),
+                const SizedBox(height: 20),
+                Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _currentMode == FocusMode.study
+                          ? AppPalette.primarySoft
+                          : AppPalette.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _currentMode == FocusMode.study
+                            ? AppPalette.primary
+                            : Colors.black12,
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _currentMode == FocusMode.study
+                              ? Icons.local_fire_department
+                              : Icons.coffee,
+                          size: 20,
+                          color: _currentMode == FocusMode.study
+                              ? AppPalette.primary
+                              : Colors.black54,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _currentMode == FocusMode.study ? 'Study Time' : 'Break Time',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: _currentMode == FocusMode.study
+                                ? AppPalette.primary
+                                : Colors.black87,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: Container(
-                  width: 260,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.black, width: 1.5),
-                  ),
-                  child: Center(
-                    child: Text(
-                      formatClock(remainingSeconds),
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w900,
-                        color: currentMode == FocusMode.study
-                            ? AppPalette.primary
-                            : AppPalette.textPrimary,
+                const SizedBox(height: 24),
+                Center(
+                  child: ScaleTransition(
+                    scale: _isRunning ? _pulseAnimation : const AlwaysStoppedAnimation(1.0),
+                    child: Container(
+                      width: 280,
+                      padding: const EdgeInsets.symmetric(vertical: 28),
+                      decoration: BoxDecoration(
+                        color: AppPalette.surface,
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: _isRunning ? AppPalette.primary : Colors.black,
+                          width: _isRunning ? 3 : 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _isRunning
+                                ? AppPalette.primary.withValues(alpha: 0.2)
+                                : Colors.black.withValues(alpha: 0.05),
+                            blurRadius: _isRunning ? 24 : 12,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          _formatClock(_remainingSeconds),
+                          style: TextStyle(
+                            fontSize: 52,
+                            fontWeight: FontWeight.w900,
+                            color: _isRunning
+                                ? AppPalette.primary
+                                : (_currentMode == FocusMode.study
+                                    ? AppPalette.primary
+                                    : Colors.black87),
+                            letterSpacing: 2,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Center(
-                child: Text(
-                  'Study ${studyHours > 0 ? '${studyHours}h ' : ''}${studyMinutes}m ${studySeconds}s  |  Break ${breakHours > 0 ? '${breakHours}h ' : ''}${breakMinutes}m ${breakSeconds}s',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-              ),
-              const SizedBox(height: 22),
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 280),
-                    curve: Curves.easeOutCubic,
-                    width: double.infinity,
-                    height: isFocusedMode ? 320 : 280,
+                const SizedBox(height: 16),
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
+                      color: AppPalette.background,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Image.asset(
-                              'lib/assets/animation.gif',
-                              fit: BoxFit.contain,
-                              alignment: Alignment.center,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  height: isFocusedMode ? 320 : 280,
-                                  color: Colors.grey.shade200,
-                                  child: const Center(child: Text('Animation')),
-                                );
-                              },
+                    child: Text(
+                      'Study ${_studyHours > 0 ? '${_studyHours}h ' : ''}${_studyMinutes}m ${_studySeconds}s  |  Break ${_breakHours > 0 ? '${_breakHours}h ' : ''}${_breakMinutes}m ${_breakSeconds}s',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.textMuted,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOutCubic,
+                      width: double.infinity,
+                      height: isFocusedMode ? 300 : 260,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Image.asset(
+                                'lib/assets/animation.gif',
+                                fit: BoxFit.contain,
+                                alignment: Alignment.center,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    height: isFocusedMode ? 300 : 260,
+                                    decoration: BoxDecoration(
+                                      color: _isRunning
+                                          ? AppPalette.primarySoft
+                                          : Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                    child: Center(
+                                      child: Icon(
+                                        Icons.local_fire_department,
+                                        size: 64,
+                                        color: _isRunning
+                                            ? AppPalette.primary.withValues(alpha: 0.4)
+                                            : Colors.grey.shade400,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-                          AnimatedOpacity(
-                            duration: const Duration(milliseconds: 250),
-                            opacity: 0,
-                            child: Container(color: Colors.black),
-                          ),
-                          if (isFocusedMode)
-                            Positioned(
-                              top: 12,
-                              right: 12,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.6),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: const Text(
-                                  'Focused Mode ON',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
+                            if (isFocusedMode)
+                              Positioned(
+                                top: 12,
+                                right: 12,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.7),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.local_fire_department,
+                                        size: 14,
+                                        color: Colors.orange,
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Focused Mode ON',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: _buildButton('Set Times', _setCustomTimes),
-              ),
-              const SizedBox(height: 14),
-              Center(
-                child: isRunning
-                    ? Wrap(
-                        spacing: 12,
-                        runSpacing: 10,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          _buildButton('Pause', pauseTimer),
-                          _buildButton('Stop', stopTimer),
-                          _buildButton('Reset', resetTimer),
-                        ],
-                      )
-                    : Wrap(
-                        spacing: 12,
-                        runSpacing: 10,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          _buildButton(_primaryButtonLabel(), startTimer),
-                          _buildButton(_secondaryButtonLabel(), _secondaryButtonAction()),
-                          if (isPaused) ...[
-                            _buildButton('Stop', stopTimer),
-                            _buildButton('Reset', resetTimer),
-                          ],
-                        ],
+                const SizedBox(height: 24),
+                Center(
+                  child: _buildButton('Set Times', _setCustomTimes),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: _isPhaseTransitioning
+                      ? const CircularProgressIndicator()
+                      : (_isRunning
+                          ? Wrap(
+                              spacing: 12,
+                              runSpacing: 10,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                _buildButton('Pause', _pauseTimer),
+                                _buildButton('Stop', _stopTimer),
+                                _buildButton('Reset', _resetTimer),
+                              ],
+                            )
+                          : Wrap(
+                              spacing: 12,
+                              runSpacing: 10,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                _buildButton(
+                                  _primaryButtonLabel(),
+                                  _startTimer,
+                                  isPrimary: true,
+                                ),
+                                _buildButton(_secondaryButtonLabel(), _secondaryButtonAction()),
+                                if (_isPaused) ...[
+                                  _buildButton('Stop', _stopTimer),
+                                  _buildButton('Reset', _resetTimer),
+                                ],
+                              ],
+                            )),
+                ),
+                const SizedBox(height: 28),
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppPalette.primarySoft,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      'Total Studied: ${_formatDuration(_totalStudiedSeconds)}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: AppPalette.primary,
                       ),
-              ),
-              const SizedBox(height: 24),
-              Center(
-                child: Text(
-                  'Total Studied: ${formatDuration(totalStudiedSeconds)}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    _buildSummaryCard('Today', formatDuration(todaySeconds)),
-                    const SizedBox(width: 8),
-                    _buildSummaryCard('This Week', formatDuration(weekSeconds)),
-                    const SizedBox(width: 8),
-                    _buildSummaryCard('Sessions', '$completedSessionsCount'),
-                  ],
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      _buildSummaryCard('Today', _formatDuration(todaySeconds)),
+                      const SizedBox(width: 10),
+                      _buildSummaryCard('This Week', _formatDuration(weekSeconds)),
+                      const SizedBox(width: 10),
+                      _buildSummaryCard('Sessions', '$_completedSessionsCount'),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Session History',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-                ),
-              ),
-              const SizedBox(height: 10),
-              if (focusSessions.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Text('No completed focus sessions yet. Start studying!'),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: focusSessions.length > 8 ? 8 : focusSessions.length,
-                  itemBuilder: (context, index) {
-                    final Map<String, dynamic> session = focusSessions[index];
-                    final int duration = (session['durationSeconds'] as int?) ?? 0;
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 6,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 24,
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.black12),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Duration: ${formatDuration(duration)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Status: ${(session['status']?.toString() ?? _completedStatus)}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Start: ${_formatSessionDate(session['start']?.toString())}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            Text(
-                              'End: ${_formatSessionDate(session['end']?.toString())}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ],
+                          color: AppPalette.primary,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                    );
-                  },
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Session History',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              const SizedBox(height: 20),
-            ],
+                const SizedBox(height: 12),
+                if (_focusSessions.isEmpty)
+                  _buildEmptyState()
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _focusSessions.length > 10 ? 10 : _focusSessions.length,
+                    itemBuilder: (context, index) {
+                      final Map<String, dynamic> session = _focusSessions[index];
+                      final int duration = (session['durationSeconds'] as int?) ?? 0;
+                      final String status = session['status']?.toString() ?? _completedStatus;
+                      final bool isCompleted = status == _completedStatus;
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 6,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppPalette.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isCompleted ? Colors.black12 : Colors.red.withValues(alpha: 0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: BoxDecoration(
+                                      color: isCompleted ? AppPalette.primary : Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    _formatDuration(duration),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isCompleted
+                                          ? AppPalette.primarySoft
+                                          : Colors.red.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      status,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        color: isCompleted ? AppPalette.primary : Colors.red,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.schedule,
+                                    size: 14,
+                                    color: AppPalette.textMuted,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${_formatSessionDate(session['start']?.toString())} - ${_formatSessionDate(session['end']?.toString())}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppPalette.textMuted,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
