@@ -39,10 +39,10 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
 
   late final Box focusBox;
 
-  Timer? timer;
-  bool isRunning = false;
-  bool isPaused = false;
-  bool isPhaseTransitioning = false;
+  Timer? _timer;
+  bool _isRunning = false;
+  bool _isPaused = false;
+  bool _isPhaseTransitioning = false;
 
   FocusMode _currentMode = FocusMode.study;
 
@@ -102,7 +102,9 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    timer?.cancel();
+    _timer?.cancel();
+    _pulseController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
@@ -460,6 +462,7 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                 borderSide: BorderSide.none,
               ),
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
+<<<<<<< HEAD
             ),
             onChanged: (val) => onChanged(int.tryParse(val) ?? 0),
           ),
@@ -693,35 +696,281 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                 Navigator.pop(context);
               },
               child: const Text('Save'),
+=======
+>>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
             ),
-          ],
+            onChanged: (val) => onChanged(int.tryParse(val) ?? 0),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _setCustomTimes() async {
+    if (_isRunning || _isPaused) {
+      _showStatusMessage('Stop the timer first to change times');
+      return;
+    }
+
+    int tempStudyHours = _studyHours;
+    int tempStudyMinutes = _studyMinutes;
+    int tempStudySeconds = _studySeconds;
+
+    int tempBreakHours = _breakHours;
+    int tempBreakMinutes = _breakMinutes;
+    int tempBreakSeconds = _breakSeconds;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Container(
+              margin: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppPalette.surface,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: Colors.black, width: 2),
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                  left: 24,
+                  right: 24,
+                  top: 20,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppPalette.primarySoft,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.timer,
+                            color: AppPalette.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        const Text(
+                          'Set Custom Times',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppPalette.primarySoft,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.local_fire_department,
+                            size: 18,
+                            color: AppPalette.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'STUDY TIME',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1,
+                              color: AppPalette.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        _buildTimeField(
+                          label: 'HOURS',
+                          value: tempStudyHours,
+                          onChanged: (val) => tempStudyHours = val.clamp(0, 23),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildTimeField(
+                          label: 'MINUTES',
+                          value: tempStudyMinutes,
+                          onChanged: (val) => tempStudyMinutes = val.clamp(0, 59),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildTimeField(
+                          label: 'SECONDS',
+                          value: tempStudySeconds,
+                          onChanged: (val) => tempStudySeconds = val.clamp(0, 59),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppPalette.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.black12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.coffee,
+                            size: 18,
+                            color: AppPalette.textMuted,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'BREAK TIME',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1,
+                              color: AppPalette.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        _buildTimeField(
+                          label: 'HOURS',
+                          value: tempBreakHours,
+                          onChanged: (val) => tempBreakHours = val.clamp(0, 23),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildTimeField(
+                          label: 'MINUTES',
+                          value: tempBreakMinutes,
+                          onChanged: (val) => tempBreakMinutes = val.clamp(0, 59),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildTimeField(
+                          label: 'SECONDS',
+                          value: tempBreakSeconds,
+                          onChanged: (val) => tempBreakSeconds = val.clamp(0, 59),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.black),
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              final int totalStudySeconds = (tempStudyHours * 3600) + (tempStudyMinutes * 60) + tempStudySeconds;
+                              final int totalBreakSeconds = (tempBreakHours * 3600) + (tempBreakMinutes * 60) + tempBreakSeconds;
+
+                              if (totalStudySeconds <= 0) {
+                                _showStatusMessage('Study time must be greater than 0');
+                                return;
+                              }
+                              if (totalBreakSeconds <= 0) {
+                                _showStatusMessage('Break time must be greater than 0');
+                                return;
+                              }
+
+                              setState(() {
+                                _studyHours = tempStudyHours;
+                                _studyMinutes = tempStudyMinutes;
+                                _studySeconds = tempStudySeconds;
+
+                                _breakHours = tempBreakHours;
+                                _breakMinutes = tempBreakMinutes;
+                                _breakSeconds = tempBreakSeconds;
+
+                                _prepareStudyMode();
+                                _currentStudySegmentSeconds = 0;
+                                _activeStudySessionStartAt = null;
+                              });
+
+                              _saveSettings();
+                              Navigator.pop(context);
+                              _showStatusMessage('Times updated successfully');
+                            },
+                            icon: const Icon(Icons.save),
+                            label: const Text('Save Times'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppPalette.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
-
-    studyHoursCtl.dispose();
-    studyMinutesCtl.dispose();
-    studySecondsCtl.dispose();
-    breakHoursCtl.dispose();
-    breakMinutesCtl.dispose();
-    breakSecondsCtl.dispose();
   }
 
   Future<void> _saveCompletedStudySession({required String status}) async {
-    if (currentStudySegmentSeconds <= 0 && activeStudySessionStartAt == null) {
+    if (_currentStudySegmentSeconds <= 0 && _activeStudySessionStartAt == null) {
       return;
     }
 
     try {
       final DateTime endTime = DateTime.now();
-      final DateTime startTime = activeStudySessionStartAt ?? endTime.subtract(Duration(seconds: currentStudySegmentSeconds));
-      final int duration = currentStudySegmentSeconds > 0
-          ? currentStudySegmentSeconds
+      final DateTime startTime = _activeStudySessionStartAt ?? endTime.subtract(Duration(seconds: _currentStudySegmentSeconds));
+      final int duration = _currentStudySegmentSeconds > 0
+          ? _currentStudySegmentSeconds
           : endTime.difference(startTime).inSeconds;
 
       if (duration <= 0) {
-        currentStudySegmentSeconds = 0;
-        activeStudySessionStartAt = null;
+        _currentStudySegmentSeconds = 0;
+        _activeStudySessionStartAt = null;
         return;
       }
 
@@ -822,22 +1071,22 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
       _activeStudySessionStartAt = DateTime.now();
     }
 
-    timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (isPhaseTransitioning || !isRunning) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_isPhaseTransitioning || !_isRunning || !mounted) {
         return;
       }
 
       setState(() {
-        if (remainingSeconds > 0) {
-          remainingSeconds--;
+        if (_remainingSeconds > 0) {
+          _remainingSeconds--;
 
-          if (currentMode == FocusMode.study) {
-            currentStudySegmentSeconds++;
+          if (_currentMode == FocusMode.study) {
+            _currentStudySegmentSeconds++;
           }
         }
       });
 
-      if (remainingSeconds <= 0 && !isPhaseTransitioning) {
+      if (_remainingSeconds <= 0 && !_isPhaseTransitioning && mounted) {
         _handlePhaseFinished();
       }
     });
@@ -847,11 +1096,14 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
       _isPaused = false;
     });
 
+<<<<<<< HEAD
     // Persist state at the moment we start/resume so we can advance correctly while off-page.
     _saveSessionState();
 
     _startTickerSilently();
 
+=======
+>>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
     _showStatusMessage(_currentMode == FocusMode.study ? 'Focus started' : 'Break started');
   }
 
@@ -907,8 +1159,11 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
       return;
     }
 
+<<<<<<< HEAD
     _controlVersion++;
 
+=======
+>>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
     _timer?.cancel();
     _timer = null;
 
@@ -926,19 +1181,22 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
       return;
     }
 
+<<<<<<< HEAD
     final int versionAtStart = _controlVersion;
 
     isPhaseTransitioning = true;
     timer?.cancel();
     timer = null;
-    bool shouldAutoStartNext = false;
+=======
+    setState(() {
+      _isPhaseTransitioning = true;
+    });
 
-    if (mounted) {
-      setState(() {
-        isRunning = false;
-        isPaused = false;
-      });
-    }
+    _timer?.cancel();
+    _timer = null;
+
+>>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
+    bool shouldAutoStartNext = false;
 
     try {
       if (_currentMode == FocusMode.study) {
@@ -957,8 +1215,13 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
           _isPaused = false;
         });
 
+<<<<<<< HEAD
         _showStatusMessage('Session complete! Taking a break now');
         unawaited(_showBreakPopup());
+=======
+        _showStatusMessage('Session complete! Taking a break');
+        await _showBreakPopup();
+>>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
 
         await Future.delayed(const Duration(seconds: 1));
         shouldAutoStartNext = true;
@@ -992,7 +1255,7 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
       }
 
       if (shouldAutoStartNext && mounted) {
-        startTimer();
+        _startTimer();
       }
     }
   }
@@ -1000,6 +1263,7 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
   Future<void> _showBreakPopup() async {
     if (!mounted) return;
 
+<<<<<<< HEAD
     if (_isBreakDialogShowing) {
       return;
     }
@@ -1018,6 +1282,19 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
               navigator.pop();
             }
           });
+=======
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (context) {
+        Future.delayed(const Duration(seconds: 3), () {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        });
+>>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
 
         return Container(
           margin: const EdgeInsets.all(12),
@@ -1075,22 +1352,28 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                         width: double.infinity,
                         decoration: BoxDecoration(
                           color: Colors.orange.shade100,
-                          child: const Center(
-                            child: Text('Break Time!'),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            '☕ Break Time!',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+              ],
             ),
-          );
-        },
-      );
-    } catch (e) {
-      debugPrint('Failed to show break popup: $e');
-    }
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _stopTimer() async {
@@ -1105,21 +1388,21 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
     final DateTime? startBeforeStop = activeStudySessionStartAt;
     final int segmentSecondsBeforeStop = currentStudySegmentSeconds;
     final bool shouldSavePartialStudy =
-        currentMode == FocusMode.study &&
-        (currentStudySegmentSeconds > 0 || activeStudySessionStartAt != null);
+        _currentMode == FocusMode.study &&
+        (_currentStudySegmentSeconds > 0 || _activeStudySessionStartAt != null);
 
     if (shouldSavePartialStudy) {
       await _saveCompletedStudySession(status: _stoppedStatus);
     }
 
     setState(() {
-      isRunning = false;
-      isPaused = false;
-      isPhaseTransitioning = false;
+      _isRunning = false;
+      _isPaused = false;
+      _isPhaseTransitioning = false;
       _prepareStudyMode();
       _updateRemainingSeconds();
-      currentStudySegmentSeconds = 0;
-      activeStudySessionStartAt = null;
+      _currentStudySegmentSeconds = 0;
+      _activeStudySessionStartAt = null;
     });
 
     _showStatusMessage('Timer stopped');
@@ -1130,13 +1413,13 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
     _timer = null;
 
     setState(() {
-      isRunning = false;
-      isPaused = false;
-      isPhaseTransitioning = false;
+      _isRunning = false;
+      _isPaused = false;
+      _isPhaseTransitioning = false;
       _prepareStudyMode();
       _updateRemainingSeconds();
-      currentStudySegmentSeconds = 0;
-      activeStudySessionStartAt = null;
+      _currentStudySegmentSeconds = 0;
+      _activeStudySessionStartAt = null;
     });
 
     _showStatusMessage('Timer reset');
