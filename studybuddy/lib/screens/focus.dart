@@ -29,12 +29,24 @@ class _FocusMainState extends State<_FocusMain> {
   static const String _completedStatus = 'Completed';
   static const String _stoppedStatus = 'Stopped Early';
 
+  static const String _keyIsRunning = 'isRunning';
+  static const String _keyIsPaused = 'isPaused';
+  static const String _keyCurrentMode = 'currentMode';
+  static const String _keyRemainingSeconds = 'remainingSeconds';
+  static const String _keyCurrentStudySegmentSeconds = 'currentStudySegmentSeconds';
+  static const String _keyActiveStudySessionStartAt = 'activeStudySessionStartAt';
+  static const String _keySessionStateSavedAt = 'sessionStateSavedAt';
+
   late final Box focusBox;
 
   Timer? timer;
   bool isRunning = false;
   bool isPaused = false;
   bool isPhaseTransitioning = false;
+
+  bool _isBreakDialogShowing = false;
+
+  int _controlVersion = 0;
 
   FocusMode currentMode = FocusMode.study;
 
@@ -66,6 +78,7 @@ class _FocusMainState extends State<_FocusMain> {
   @override
   void dispose() {
     timer?.cancel();
+    _saveSessionState();
     super.dispose();
   }
 
@@ -97,10 +110,111 @@ class _FocusMainState extends State<_FocusMain> {
             .length;
       }
 
+      // Restore mode first (so defaults are computed correctly).
+      final String? modeStr = focusBox.get(_keyCurrentMode) as String?;
+      if (modeStr == 'FocusMode.breakTime') {
+        currentMode = FocusMode.breakTime;
+      } else {
+        currentMode = FocusMode.study;
+      }
+
+      // Establish a baseline (full duration) before applying any restored running state.
       _updateRemainingSeconds();
+
+      // Restore active session state if one was running
+      _restoreActiveSessionState();
     } catch (e) {
       debugPrint('Failed to load focus state: $e');
     }
+  }
+
+  void _restoreActiveSessionState() {
+    try {
+      final bool wasRunning = (focusBox.get(_keyIsRunning) as bool?) ?? false;
+      final bool wasPaused = (focusBox.get(_keyIsPaused) as bool?) ?? false;
+
+      // If it wasn't running, there's nothing to restore.
+      if (!wasRunning) {
+        isRunning = false;
+        isPaused = wasPaused;
+        return;
+      }
+
+      final int savedRemaining = (focusBox.get(_keyRemainingSeconds) as int?) ?? remainingSeconds;
+      final int savedStudySegmentSeconds = (focusBox.get(_keyCurrentStudySegmentSeconds) as int?) ?? 0;
+      final String? savedAtIso = focusBox.get(_keySessionStateSavedAt) as String?;
+
+      // Restore active study session start time (used only for history metadata).
+      final String? sessionStartIso = focusBox.get(_keyActiveStudySessionStartAt) as String?;
+      if (sessionStartIso != null && sessionStartIso.isNotEmpty) {
+        activeStudySessionStartAt = DateTime.tryParse(sessionStartIso);
+      }
+
+      int deltaSeconds = 0;
+      if (savedAtIso != null && savedAtIso.isNotEmpty) {
+        final DateTime? savedAt = DateTime.tryParse(savedAtIso);
+        if (savedAt != null) {
+          deltaSeconds = DateTime.now().difference(savedAt).inSeconds;
+          if (deltaSeconds < 0) {
+            deltaSeconds = 0;
+          }
+        }
+      }
+
+      // If it was paused, don't advance time while away.
+      if (wasPaused) {
+        isRunning = false;
+        isPaused = true;
+        remainingSeconds = savedRemaining;
+        currentStudySegmentSeconds = savedStudySegmentSeconds;
+        return;
+      }
+
+      final int advanced = deltaSeconds.clamp(0, savedRemaining);
+      remainingSeconds = (savedRemaining - deltaSeconds).clamp(0, savedRemaining);
+
+      if (currentMode == FocusMode.study) {
+        currentStudySegmentSeconds = savedStudySegmentSeconds + advanced;
+      } else {
+        currentStudySegmentSeconds = savedStudySegmentSeconds;
+      }
+
+      // Keep the session logically running, but resume the UI ticker silently.
+      isRunning = remainingSeconds > 0;
+      isPaused = false;
+
+      if (isRunning) {
+        _startTickerSilently();
+      }
+    } catch (e) {
+      debugPrint('Failed to restore active session state: $e');
+    }
+  }
+
+  void _startTickerSilently() {
+    if (timer != null) {
+      return;
+    }
+
+    timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (isPhaseTransitioning || !isRunning) {
+        return;
+      }
+
+      setState(() {
+        if (remainingSeconds > 0) {
+          remainingSeconds--;
+
+          if (currentMode == FocusMode.study) {
+            currentStudySegmentSeconds++;
+          }
+        }
+      });
+
+      if (remainingSeconds <= 0 && !isPhaseTransitioning) {
+        _handlePhaseFinished();
+      }
+    });
   }
 
   List<Map<String, dynamic>> _normalizeSessions(dynamic rawSessions) {
@@ -195,6 +309,23 @@ class _FocusMainState extends State<_FocusMain> {
       await focusBox.put('breakSeconds', breakSeconds);
     } catch (e) {
       debugPrint('Failed to save focus settings: $e');
+    }
+  }
+
+  Future<void> _saveSessionState() async {
+    try {
+      await focusBox.put(_keyIsRunning, isRunning);
+      await focusBox.put(_keyIsPaused, isPaused);
+      await focusBox.put(_keyCurrentMode, currentMode.toString());
+      await focusBox.put(_keyRemainingSeconds, remainingSeconds);
+      await focusBox.put(_keyCurrentStudySegmentSeconds, currentStudySegmentSeconds);
+      await focusBox.put(
+        _keyActiveStudySessionStartAt,
+        activeStudySessionStartAt?.toIso8601String() ?? '',
+      );
+      await focusBox.put(_keySessionStateSavedAt, DateTime.now().toIso8601String());
+    } catch (e) {
+      debugPrint('Failed to save session state: $e');
     }
   }
 
@@ -401,6 +532,7 @@ class _FocusMainState extends State<_FocusMain> {
                 });
 
                 _saveSettings();
+                _clearSessionState();
                 Navigator.pop(context);
               },
               child: const Text('Save'),
@@ -418,21 +550,29 @@ class _FocusMainState extends State<_FocusMain> {
     breakSecondsCtl.dispose();
   }
 
-  Future<void> _saveCompletedStudySession({required String status}) async {
-    if (currentStudySegmentSeconds <= 0 && activeStudySessionStartAt == null) {
+  Future<void> _saveCompletedStudySession({
+    required String status,
+    DateTime? startAtOverride,
+    int? durationSecondsOverride,
+  }) async {
+    final int effectiveSegmentSeconds = durationSecondsOverride ?? currentStudySegmentSeconds;
+    final DateTime? effectiveStartAt = startAtOverride ?? activeStudySessionStartAt;
+
+    if (effectiveSegmentSeconds <= 0 && effectiveStartAt == null) {
       return;
     }
 
     try {
       final DateTime endTime = DateTime.now();
-      final DateTime startTime = activeStudySessionStartAt ?? endTime.subtract(Duration(seconds: currentStudySegmentSeconds));
-      final int duration = currentStudySegmentSeconds > 0
-          ? currentStudySegmentSeconds
+      final DateTime startTime = effectiveStartAt ?? endTime.subtract(Duration(seconds: effectiveSegmentSeconds));
+      final int duration = effectiveSegmentSeconds > 0
+          ? effectiveSegmentSeconds
           : endTime.difference(startTime).inSeconds;
 
       if (duration <= 0) {
         currentStudySegmentSeconds = 0;
         activeStudySessionStartAt = null;
+        await _clearSessionState();
         return;
       }
 
@@ -456,9 +596,24 @@ class _FocusMainState extends State<_FocusMain> {
       activeStudySessionStartAt = null;
 
       await _saveStats();
+      await _clearSessionState();
       _showStatusMessage('Session saved successfully ✓');
     } catch (e) {
       _showStatusMessage('Error saving session');
+    }
+  }
+
+  Future<void> _clearSessionState() async {
+    try {
+      await focusBox.delete(_keyIsRunning);
+      await focusBox.delete(_keyIsPaused);
+      await focusBox.delete(_keyCurrentMode);
+      await focusBox.delete(_keyRemainingSeconds);
+      await focusBox.delete(_keyCurrentStudySegmentSeconds);
+      await focusBox.delete(_keyActiveStudySessionStartAt);
+      await focusBox.delete(_keySessionStateSavedAt);
+    } catch (e) {
+      debugPrint('Failed to clear session state: $e');
     }
   }
 
@@ -518,30 +673,15 @@ class _FocusMainState extends State<_FocusMain> {
       activeStudySessionStartAt = DateTime.now();
     }
 
-    timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (isPhaseTransitioning || !isRunning) {
-        return;
-      }
-
-      setState(() {
-        if (remainingSeconds > 0) {
-          remainingSeconds--;
-
-          if (currentMode == FocusMode.study) {
-            currentStudySegmentSeconds++;
-          }
-        }
-      });
-
-      if (remainingSeconds <= 0 && !isPhaseTransitioning) {
-        _handlePhaseFinished();
-      }
-    });
-
     setState(() {
       isRunning = true;
       isPaused = false;
     });
+
+    // Persist state at the moment we start/resume so we can advance correctly while off-page.
+    _saveSessionState();
+
+    _startTickerSilently();
 
     if (currentMode == FocusMode.study) {
       _showStatusMessage('Focus started');
@@ -603,6 +743,8 @@ class _FocusMainState extends State<_FocusMain> {
       return;
     }
 
+    _controlVersion++;
+
     timer?.cancel();
     timer = null;
 
@@ -611,6 +753,7 @@ class _FocusMainState extends State<_FocusMain> {
       isPaused = true;
     });
 
+    _saveSessionState();
     _showStatusMessage('Timer paused');
   }
 
@@ -618,6 +761,8 @@ class _FocusMainState extends State<_FocusMain> {
     if (isPhaseTransitioning) {
       return;
     }
+
+    final int versionAtStart = _controlVersion;
 
     isPhaseTransitioning = true;
     timer?.cancel();
@@ -629,6 +774,7 @@ class _FocusMainState extends State<_FocusMain> {
         isRunning = false;
         isPaused = false;
       });
+      await _saveSessionState();
     }
 
     try {
@@ -646,6 +792,7 @@ class _FocusMainState extends State<_FocusMain> {
           currentStudySegmentSeconds = 0;
         });
 
+        await _saveSessionState();
         _showStatusMessage('Session complete! Taking a break now');
         unawaited(_showBreakPopup());
 
@@ -667,6 +814,7 @@ class _FocusMainState extends State<_FocusMain> {
           currentStudySegmentSeconds = 0;
         });
 
+        await _saveSessionState();
         _showStatusMessage('Break complete! Back to focus');
 
         await Future.delayed(const Duration(milliseconds: 500));
@@ -674,11 +822,11 @@ class _FocusMainState extends State<_FocusMain> {
         shouldAutoStartNext = true;
       }
     } catch (e) {
-      _showStatusMessage('Error occurred');  
+      _showStatusMessage('Error occurred');
     } finally {
       isPhaseTransitioning = false;
 
-      if (shouldAutoStartNext && mounted) {
+      if (shouldAutoStartNext && mounted && _controlVersion == versionAtStart) {
         startTimer();
       }
     }
@@ -687,17 +835,31 @@ class _FocusMainState extends State<_FocusMain> {
   Future<void> _showBreakPopup() async {
     if (!mounted) return;
 
+    if (_isBreakDialogShowing) {
+      return;
+    }
+
+    _isBreakDialogShowing = true;
+    bool scheduledAutoClose = false;
+
     try {
       await showDialog<void>(
         context: context,
-        barrierDismissible: false,
+        useRootNavigator: true,
+        barrierDismissible: true,
         builder: (dialogContext) {
-          Timer(const Duration(seconds: 2), () {
-            final NavigatorState navigator = Navigator.of(dialogContext);
-            if (navigator.mounted && navigator.canPop()) {
-              navigator.pop();
-            }
-          });
+          if (!scheduledAutoClose) {
+            scheduledAutoClose = true;
+            final NavigatorState navigator = Navigator.of(
+              dialogContext,
+              rootNavigator: true,
+            );
+            Future.delayed(const Duration(seconds: 2), () {
+              if (navigator.mounted && navigator.canPop()) {
+                navigator.pop();
+              }
+            });
+          }
 
           return Dialog(
             shape: RoundedRectangleBorder(
@@ -738,6 +900,8 @@ class _FocusMainState extends State<_FocusMain> {
       );
     } catch (e) {
       debugPrint('Failed to show break popup: $e');
+    } finally {
+      _isBreakDialogShowing = false;
     }
   }
 
@@ -745,15 +909,28 @@ class _FocusMainState extends State<_FocusMain> {
     timer?.cancel();
     timer = null;
 
+    // Cancels any pending auto-start (e.g., from phase transitions).
+    _controlVersion++;
+
+    // Capture current session values first (we reset state before awaiting).
+    final FocusMode modeBeforeStop = currentMode;
+    final DateTime? startBeforeStop = activeStudySessionStartAt;
+    final int segmentSecondsBeforeStop = currentStudySegmentSeconds;
     final bool shouldSavePartialStudy =
-        currentMode == FocusMode.study &&
-        (currentStudySegmentSeconds > 0 || activeStudySessionStartAt != null);
+        modeBeforeStop == FocusMode.study &&
+        (segmentSecondsBeforeStop > 0 || startBeforeStop != null);
 
-    if (shouldSavePartialStudy) {
-      await _saveCompletedStudySession(status: _stoppedStatus);
-    }
-
-    setState(() {
+    if (mounted) {
+      setState(() {
+        isRunning = false;
+        isPaused = false;
+        isPhaseTransitioning = false;
+        _prepareStudyMode();
+        _updateRemainingSeconds();
+        currentStudySegmentSeconds = 0;
+        activeStudySessionStartAt = null;
+      });
+    } else {
       isRunning = false;
       isPaused = false;
       isPhaseTransitioning = false;
@@ -761,7 +938,18 @@ class _FocusMainState extends State<_FocusMain> {
       _updateRemainingSeconds();
       currentStudySegmentSeconds = 0;
       activeStudySessionStartAt = null;
-    });
+    }
+
+    // Ensure returning to this page will NOT resume a stopped session.
+    await _clearSessionState();
+
+    if (shouldSavePartialStudy) {
+      await _saveCompletedStudySession(
+        status: _stoppedStatus,
+        startAtOverride: startBeforeStop,
+        durationSecondsOverride: segmentSecondsBeforeStop,
+      );
+    }
 
     _showStatusMessage('Timer stopped');
   }
@@ -770,7 +958,20 @@ class _FocusMainState extends State<_FocusMain> {
     timer?.cancel();
     timer = null;
 
-    setState(() {
+    // Cancels any pending auto-start (e.g., from phase transitions).
+    _controlVersion++;
+
+    if (mounted) {
+      setState(() {
+        isRunning = false;
+        isPaused = false;
+        isPhaseTransitioning = false;
+        _prepareStudyMode();
+        _updateRemainingSeconds();
+        currentStudySegmentSeconds = 0;
+        activeStudySessionStartAt = null;
+      });
+    } else {
       isRunning = false;
       isPaused = false;
       isPhaseTransitioning = false;
@@ -778,8 +979,10 @@ class _FocusMainState extends State<_FocusMain> {
       _updateRemainingSeconds();
       currentStudySegmentSeconds = 0;
       activeStudySessionStartAt = null;
-    });
+    }
 
+    // Ensure returning to this page will NOT resume a reset session.
+    await _clearSessionState();
     _showStatusMessage('Timer reset');
   }
 
