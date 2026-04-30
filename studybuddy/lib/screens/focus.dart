@@ -33,8 +33,10 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
   static const String _keyIsPaused = 'isPaused';
   static const String _keyCurrentMode = 'currentMode';
   static const String _keyRemainingSeconds = 'remainingSeconds';
-  static const String _keyCurrentStudySegmentSeconds = 'currentStudySegmentSeconds';
-  static const String _keyActiveStudySessionStartAt = 'activeStudySessionStartAt';
+  static const String _keyCurrentStudySegmentSeconds =
+      'currentStudySegmentSeconds';
+  static const String _keyActiveStudySessionStartAt =
+      'activeStudySessionStartAt';
   static const String _keySessionStateSavedAt = 'sessionStateSavedAt';
 
   late final Box focusBox;
@@ -43,6 +45,8 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
   bool _isRunning = false;
   bool _isPaused = false;
   bool _isPhaseTransitioning = false;
+  bool _isBreakPopupVisible = false;
+  int _transitionToken = 0;
 
   FocusMode _currentMode = FocusMode.study;
 
@@ -81,22 +85,17 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
     )..repeat(reverse: true);
 
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(
-        parent: _pulseController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _fadeController,
-        curve: Curves.easeOut,
-      ),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
     _fadeController.forward();
   }
 
@@ -119,7 +118,8 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
       _breakSeconds = (focusBox.get('breakSeconds') as int?) ?? 0;
 
       _totalStudiedSeconds = (focusBox.get('totalStudiedSeconds') as int?) ?? 0;
-      _completedSessionsCount = (focusBox.get('completedSessionsCount') as int?) ?? 0;
+      _completedSessionsCount =
+          (focusBox.get('completedSessionsCount') as int?) ?? 0;
 
       _focusSessions = _normalizeSessions(focusBox.get('focusSessions'));
 
@@ -132,16 +132,19 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
 
       if (_completedSessionsCount <= 0 && _focusSessions.isNotEmpty) {
         _completedSessionsCount = _focusSessions
-            .where((session) => (session['status']?.toString() ?? '') == _completedStatus)
+            .where(
+              (session) =>
+                  (session['status']?.toString() ?? '') == _completedStatus,
+            )
             .length;
       }
 
       // Restore mode first (so defaults are computed correctly).
       final String? modeStr = focusBox.get(_keyCurrentMode) as String?;
       if (modeStr == 'FocusMode.breakTime') {
-        currentMode = FocusMode.breakTime;
+        _currentMode = FocusMode.breakTime;
       } else {
-        currentMode = FocusMode.study;
+        _currentMode = FocusMode.study;
       }
 
       // Establish a baseline (full duration) before applying any restored running state.
@@ -161,19 +164,23 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
 
       // If it wasn't running, there's nothing to restore.
       if (!wasRunning) {
-        isRunning = false;
-        isPaused = wasPaused;
+        _isRunning = false;
+        _isPaused = wasPaused;
         return;
       }
 
-      final int savedRemaining = (focusBox.get(_keyRemainingSeconds) as int?) ?? remainingSeconds;
-      final int savedStudySegmentSeconds = (focusBox.get(_keyCurrentStudySegmentSeconds) as int?) ?? 0;
-      final String? savedAtIso = focusBox.get(_keySessionStateSavedAt) as String?;
+      final int savedRemaining =
+          (focusBox.get(_keyRemainingSeconds) as int?) ?? _remainingSeconds;
+      final int savedStudySegmentSeconds =
+          (focusBox.get(_keyCurrentStudySegmentSeconds) as int?) ?? 0;
+      final String? savedAtIso =
+          focusBox.get(_keySessionStateSavedAt) as String?;
 
       // Restore active study session start time (used only for history metadata).
-      final String? sessionStartIso = focusBox.get(_keyActiveStudySessionStartAt) as String?;
+      final String? sessionStartIso =
+          focusBox.get(_keyActiveStudySessionStartAt) as String?;
       if (sessionStartIso != null && sessionStartIso.isNotEmpty) {
-        activeStudySessionStartAt = DateTime.tryParse(sessionStartIso);
+        _activeStudySessionStartAt = DateTime.tryParse(sessionStartIso);
       }
 
       int deltaSeconds = 0;
@@ -189,27 +196,30 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
 
       // If it was paused, don't advance time while away.
       if (wasPaused) {
-        isRunning = false;
-        isPaused = true;
-        remainingSeconds = savedRemaining;
-        currentStudySegmentSeconds = savedStudySegmentSeconds;
+        _isRunning = false;
+        _isPaused = true;
+        _remainingSeconds = savedRemaining;
+        _currentStudySegmentSeconds = savedStudySegmentSeconds;
         return;
       }
 
       final int advanced = deltaSeconds.clamp(0, savedRemaining);
-      remainingSeconds = (savedRemaining - deltaSeconds).clamp(0, savedRemaining);
+      _remainingSeconds = (savedRemaining - deltaSeconds).clamp(
+        0,
+        savedRemaining,
+      );
 
-      if (currentMode == FocusMode.study) {
-        currentStudySegmentSeconds = savedStudySegmentSeconds + advanced;
+      if (_currentMode == FocusMode.study) {
+        _currentStudySegmentSeconds = savedStudySegmentSeconds + advanced;
       } else {
-        currentStudySegmentSeconds = savedStudySegmentSeconds;
+        _currentStudySegmentSeconds = savedStudySegmentSeconds;
       }
 
       // Keep the session logically running, but resume the UI ticker silently.
-      isRunning = remainingSeconds > 0;
-      isPaused = false;
+      _isRunning = _remainingSeconds > 0;
+      _isPaused = false;
 
-      if (isRunning) {
+      if (_isRunning) {
         _startTickerSilently();
       }
     } catch (e) {
@@ -218,26 +228,26 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
   }
 
   void _startTickerSilently() {
-    if (timer != null) {
+    if (_timer != null) {
       return;
     }
 
-    timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (isPhaseTransitioning || !isRunning) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_isPhaseTransitioning || !_isRunning) {
         return;
       }
 
       setState(() {
-        if (remainingSeconds > 0) {
-          remainingSeconds--;
+        if (_remainingSeconds > 0) {
+          _remainingSeconds--;
 
-          if (currentMode == FocusMode.study) {
-            currentStudySegmentSeconds++;
+          if (_currentMode == FocusMode.study) {
+            _currentStudySegmentSeconds++;
           }
         }
       });
 
-      if (remainingSeconds <= 0 && !isPhaseTransitioning) {
+      if (_remainingSeconds <= 0 && !_isPhaseTransitioning) {
         _handlePhaseFinished();
       }
     });
@@ -264,14 +274,12 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
         continue;
       }
 
-      normalized.add(
-        <String, dynamic>{
-          'start': start,
-          'end': end,
-          'durationSeconds': duration,
-          'status': status.isEmpty ? _completedStatus : status,
-        },
-      );
+      normalized.add(<String, dynamic>{
+        'start': start,
+        'end': end,
+        'durationSeconds': duration,
+        'status': status.isEmpty ? _completedStatus : status,
+      });
     }
 
     normalized.sort((a, b) {
@@ -308,9 +316,11 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
 
   void _updateRemainingSeconds() {
     if (_currentMode == FocusMode.study) {
-      _remainingSeconds = (_studyHours * 3600) + (_studyMinutes * 60) + _studySeconds;
+      _remainingSeconds =
+          (_studyHours * 3600) + (_studyMinutes * 60) + _studySeconds;
     } else {
-      _remainingSeconds = (_breakHours * 3600) + (_breakMinutes * 60) + _breakSeconds;
+      _remainingSeconds =
+          (_breakHours * 3600) + (_breakMinutes * 60) + _breakSeconds;
     }
   }
 
@@ -340,16 +350,22 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
 
   Future<void> _saveSessionState() async {
     try {
-      await focusBox.put(_keyIsRunning, isRunning);
-      await focusBox.put(_keyIsPaused, isPaused);
-      await focusBox.put(_keyCurrentMode, currentMode.toString());
-      await focusBox.put(_keyRemainingSeconds, remainingSeconds);
-      await focusBox.put(_keyCurrentStudySegmentSeconds, currentStudySegmentSeconds);
+      await focusBox.put(_keyIsRunning, _isRunning);
+      await focusBox.put(_keyIsPaused, _isPaused);
+      await focusBox.put(_keyCurrentMode, _currentMode.toString());
+      await focusBox.put(_keyRemainingSeconds, _remainingSeconds);
+      await focusBox.put(
+        _keyCurrentStudySegmentSeconds,
+        _currentStudySegmentSeconds,
+      );
       await focusBox.put(
         _keyActiveStudySessionStartAt,
-        activeStudySessionStartAt?.toIso8601String() ?? '',
+        _activeStudySessionStartAt?.toIso8601String() ?? '',
       );
-      await focusBox.put(_keySessionStateSavedAt, DateTime.now().toIso8601String());
+      await focusBox.put(
+        _keySessionStateSavedAt,
+        DateTime.now().toIso8601String(),
+      );
     } catch (e) {
       debugPrint('Failed to save session state: $e');
     }
@@ -431,7 +447,9 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
     required int value,
     required ValueChanged<int> onChanged,
   }) {
-    final TextEditingController controller = TextEditingController(text: value.toString());
+    final TextEditingController controller = TextEditingController(
+      text: value.toString(),
+    );
 
     return Expanded(
       child: Column(
@@ -450,10 +468,7 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
             controller: controller,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
             decoration: InputDecoration(
               filled: true,
               fillColor: AppPalette.background,
@@ -462,7 +477,6 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                 borderSide: BorderSide.none,
               ),
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
-<<<<<<< HEAD
             ),
             onChanged: (val) => onChanged(int.tryParse(val) ?? 0),
           ),
@@ -547,7 +561,10 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                     ),
                     const SizedBox(height: 24),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: AppPalette.primarySoft,
                         borderRadius: BorderRadius.circular(16),
@@ -584,19 +601,24 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                         _buildTimeField(
                           label: 'MINUTES',
                           value: tempStudyMinutes,
-                          onChanged: (val) => tempStudyMinutes = val.clamp(0, 59),
+                          onChanged: (val) =>
+                              tempStudyMinutes = val.clamp(0, 59),
                         ),
                         const SizedBox(width: 12),
                         _buildTimeField(
                           label: 'SECONDS',
                           value: tempStudySeconds,
-                          onChanged: (val) => tempStudySeconds = val.clamp(0, 59),
+                          onChanged: (val) =>
+                              tempStudySeconds = val.clamp(0, 59),
                         ),
                       ],
                     ),
                     const SizedBox(height: 24),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: AppPalette.surface,
                         borderRadius: BorderRadius.circular(16),
@@ -634,13 +656,15 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                         _buildTimeField(
                           label: 'MINUTES',
                           value: tempBreakMinutes,
-                          onChanged: (val) => tempBreakMinutes = val.clamp(0, 59),
+                          onChanged: (val) =>
+                              tempBreakMinutes = val.clamp(0, 59),
                         ),
                         const SizedBox(width: 12),
                         _buildTimeField(
                           label: 'SECONDS',
                           value: tempBreakSeconds,
-                          onChanged: (val) => tempBreakSeconds = val.clamp(0, 59),
+                          onChanged: (val) =>
+                              tempBreakSeconds = val.clamp(0, 59),
                         ),
                       ],
                     ),
@@ -666,250 +690,25 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                           flex: 2,
                           child: FilledButton.icon(
                             onPressed: () {
-                              final int totalStudySeconds = (tempStudyHours * 3600) + (tempStudyMinutes * 60) + tempStudySeconds;
-                              final int totalBreakSeconds = (tempBreakHours * 3600) + (tempBreakMinutes * 60) + tempBreakSeconds;
+                              final int totalStudySeconds =
+                                  (tempStudyHours * 3600) +
+                                  (tempStudyMinutes * 60) +
+                                  tempStudySeconds;
+                              final int totalBreakSeconds =
+                                  (tempBreakHours * 3600) +
+                                  (tempBreakMinutes * 60) +
+                                  tempBreakSeconds;
 
                               if (totalStudySeconds <= 0) {
-                                _showStatusMessage('Study time must be greater than 0');
+                                _showStatusMessage(
+                                  'Study time must be greater than 0',
+                                );
                                 return;
                               }
                               if (totalBreakSeconds <= 0) {
-                                _showStatusMessage('Break time must be greater than 0');
-                                return;
-                              }
-
-                              setState(() {
-                                _studyHours = tempStudyHours;
-                                _studyMinutes = tempStudyMinutes;
-                                _studySeconds = tempStudySeconds;
-
-                                _breakHours = tempBreakHours;
-                                _breakMinutes = tempBreakMinutes;
-                                _breakSeconds = tempBreakSeconds;
-
-                                _prepareStudyMode();
-                                _currentStudySegmentSeconds = 0;
-                                _activeStudySessionStartAt = null;
-                              });
-
-                _saveSettings();
-                Navigator.pop(context);
-              },
-              child: const Text('Save'),
-=======
->>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
-            ),
-            onChanged: (val) => onChanged(int.tryParse(val) ?? 0),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _setCustomTimes() async {
-    if (_isRunning || _isPaused) {
-      _showStatusMessage('Stop the timer first to change times');
-      return;
-    }
-
-    int tempStudyHours = _studyHours;
-    int tempStudyMinutes = _studyMinutes;
-    int tempStudySeconds = _studySeconds;
-
-    int tempBreakHours = _breakHours;
-    int tempBreakMinutes = _breakMinutes;
-    int tempBreakSeconds = _breakSeconds;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return Container(
-              margin: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppPalette.surface,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: Colors.black, width: 2),
-              ),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-                  left: 24,
-                  right: 24,
-                  top: 20,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.black26,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: AppPalette.primarySoft,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(
-                            Icons.timer,
-                            color: AppPalette.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        const Text(
-                          'Set Custom Times',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppPalette.primarySoft,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.local_fire_department,
-                            size: 18,
-                            color: AppPalette.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'STUDY TIME',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1,
-                              color: AppPalette.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        _buildTimeField(
-                          label: 'HOURS',
-                          value: tempStudyHours,
-                          onChanged: (val) => tempStudyHours = val.clamp(0, 23),
-                        ),
-                        const SizedBox(width: 12),
-                        _buildTimeField(
-                          label: 'MINUTES',
-                          value: tempStudyMinutes,
-                          onChanged: (val) => tempStudyMinutes = val.clamp(0, 59),
-                        ),
-                        const SizedBox(width: 12),
-                        _buildTimeField(
-                          label: 'SECONDS',
-                          value: tempStudySeconds,
-                          onChanged: (val) => tempStudySeconds = val.clamp(0, 59),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppPalette.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.black12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.coffee,
-                            size: 18,
-                            color: AppPalette.textMuted,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'BREAK TIME',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1,
-                              color: AppPalette.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        _buildTimeField(
-                          label: 'HOURS',
-                          value: tempBreakHours,
-                          onChanged: (val) => tempBreakHours = val.clamp(0, 23),
-                        ),
-                        const SizedBox(width: 12),
-                        _buildTimeField(
-                          label: 'MINUTES',
-                          value: tempBreakMinutes,
-                          onChanged: (val) => tempBreakMinutes = val.clamp(0, 59),
-                        ),
-                        const SizedBox(width: 12),
-                        _buildTimeField(
-                          label: 'SECONDS',
-                          value: tempBreakSeconds,
-                          onChanged: (val) => tempBreakSeconds = val.clamp(0, 59),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.black),
-                              foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: const Text('Cancel'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: FilledButton.icon(
-                            onPressed: () {
-                              final int totalStudySeconds = (tempStudyHours * 3600) + (tempStudyMinutes * 60) + tempStudySeconds;
-                              final int totalBreakSeconds = (tempBreakHours * 3600) + (tempBreakMinutes * 60) + tempBreakSeconds;
-
-                              if (totalStudySeconds <= 0) {
-                                _showStatusMessage('Study time must be greater than 0');
-                                return;
-                              }
-                              if (totalBreakSeconds <= 0) {
-                                _showStatusMessage('Break time must be greater than 0');
+                                _showStatusMessage(
+                                  'Break time must be greater than 0',
+                                );
                                 return;
                               }
 
@@ -957,13 +756,16 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
   }
 
   Future<void> _saveCompletedStudySession({required String status}) async {
-    if (_currentStudySegmentSeconds <= 0 && _activeStudySessionStartAt == null) {
+    if (_currentStudySegmentSeconds <= 0 &&
+        _activeStudySessionStartAt == null) {
       return;
     }
 
     try {
       final DateTime endTime = DateTime.now();
-      final DateTime startTime = _activeStudySessionStartAt ?? endTime.subtract(Duration(seconds: _currentStudySegmentSeconds));
+      final DateTime startTime =
+          _activeStudySessionStartAt ??
+          endTime.subtract(Duration(seconds: _currentStudySegmentSeconds));
       final int duration = _currentStudySegmentSeconds > 0
           ? _currentStudySegmentSeconds
           : endTime.difference(startTime).inSeconds;
@@ -1022,7 +824,9 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
     int total = 0;
     for (final session in _focusSessions) {
       try {
-        final DateTime? end = DateTime.tryParse(session['end']?.toString() ?? '');
+        final DateTime? end = DateTime.tryParse(
+          session['end']?.toString() ?? '',
+        );
         if (end == null) continue;
 
         final DateTime endDay = DateTime(end.year, end.month, end.day);
@@ -1039,12 +843,18 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
 
   int _getWeeklyTotalSeconds() {
     final DateTime now = DateTime.now();
-    final DateTime weekStart = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
+    final DateTime weekStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
 
     int total = 0;
     for (final session in _focusSessions) {
       try {
-        final DateTime? end = DateTime.tryParse(session['end']?.toString() ?? '');
+        final DateTime? end = DateTime.tryParse(
+          session['end']?.toString() ?? '',
+        );
         if (end == null) continue;
 
         if (!end.isBefore(weekStart)) {
@@ -1096,15 +906,13 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
       _isPaused = false;
     });
 
-<<<<<<< HEAD
     // Persist state at the moment we start/resume so we can advance correctly while off-page.
     _saveSessionState();
 
     _startTickerSilently();
-
-=======
->>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
-    _showStatusMessage(_currentMode == FocusMode.study ? 'Focus started' : 'Break started');
+    _showStatusMessage(
+      _currentMode == FocusMode.study ? 'Focus started' : 'Break started',
+    );
   }
 
   void _startBreakTimer() {
@@ -1151,7 +959,9 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
   }
 
   VoidCallback _secondaryButtonAction() {
-    return _currentMode == FocusMode.study ? _startBreakTimer : _startStudyTimer;
+    return _currentMode == FocusMode.study
+        ? _startBreakTimer
+        : _startStudyTimer;
   }
 
   void _pauseTimer() {
@@ -1159,11 +969,7 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
       return;
     }
 
-<<<<<<< HEAD
-    _controlVersion++;
-
-=======
->>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
+    _transitionToken++;
     _timer?.cancel();
     _timer = null;
 
@@ -1181,21 +987,14 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
       return;
     }
 
-<<<<<<< HEAD
-    final int versionAtStart = _controlVersion;
+    final int tokenAtStart = _transitionToken;
 
-    isPhaseTransitioning = true;
-    timer?.cancel();
-    timer = null;
-=======
     setState(() {
       _isPhaseTransitioning = true;
     });
 
     _timer?.cancel();
     _timer = null;
-
->>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
     bool shouldAutoStartNext = false;
 
     try {
@@ -1215,13 +1014,8 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
           _isPaused = false;
         });
 
-<<<<<<< HEAD
-        _showStatusMessage('Session complete! Taking a break now');
-        unawaited(_showBreakPopup());
-=======
         _showStatusMessage('Session complete! Taking a break');
-        await _showBreakPopup();
->>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
+        _showBreakPopup();
 
         await Future.delayed(const Duration(seconds: 1));
         shouldAutoStartNext = true;
@@ -1239,6 +1033,7 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
           _isPaused = false;
         });
 
+        _hideBreakPopup();
         await _saveSessionState();
         _showStatusMessage('Break complete! Back to focus');
 
@@ -1255,138 +1050,47 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
       }
 
       if (shouldAutoStartNext && mounted) {
+        if (tokenAtStart != _transitionToken) {
+          shouldAutoStartNext = false;
+        }
+      }
+
+      if (shouldAutoStartNext && mounted) {
         _startTimer();
       }
     }
   }
 
-  Future<void> _showBreakPopup() async {
+  void _showBreakPopup() {
     if (!mounted) return;
 
-<<<<<<< HEAD
-    if (_isBreakDialogShowing) {
+    if (!_isBreakPopupVisible) {
+      setState(() {
+        _isBreakPopupVisible = true;
+      });
+    }
+  }
+
+  void _hideBreakPopup() {
+    if (!mounted) {
+      _isBreakPopupVisible = false;
       return;
     }
 
-    _isBreakDialogShowing = true;
-    bool scheduledAutoClose = false;
-
-    try {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) {
-          Timer(const Duration(seconds: 2), () {
-            final NavigatorState navigator = Navigator.of(dialogContext);
-            if (navigator.mounted && navigator.canPop()) {
-              navigator.pop();
-            }
-          });
-=======
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isDismissible: false,
-      enableDrag: false,
-      builder: (context) {
-        Future.delayed(const Duration(seconds: 3), () {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
-        });
->>>>>>> f07215ed176a1caa09e47fdeb0ba5615d53becdf
-
-        return Container(
-          margin: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppPalette.surface,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: Colors.black, width: 2),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.coffee,
-                    size: 32,
-                    color: Colors.orange,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Break Time!',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Great work! Take a ${_breakMinutes}m break.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppPalette.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.asset(
-                    'lib/assets/break.gif',
-                    height: 160,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 160,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade100,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            '☕ Break Time!',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    if (_isBreakPopupVisible) {
+      setState(() {
+        _isBreakPopupVisible = false;
+      });
+    }
   }
 
   Future<void> _stopTimer() async {
+    _transitionToken++;
     _timer?.cancel();
     _timer = null;
 
-    // Cancels any pending auto-start (e.g., from phase transitions).
-    _controlVersion++;
+    _hideBreakPopup();
 
-    // Capture current session values first (we reset state before awaiting).
-    final FocusMode modeBeforeStop = currentMode;
-    final DateTime? startBeforeStop = activeStudySessionStartAt;
-    final int segmentSecondsBeforeStop = currentStudySegmentSeconds;
     final bool shouldSavePartialStudy =
         _currentMode == FocusMode.study &&
         (_currentStudySegmentSeconds > 0 || _activeStudySessionStartAt != null);
@@ -1409,8 +1113,11 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
   }
 
   Future<void> _resetTimer() async {
+    _transitionToken++;
     _timer?.cancel();
     _timer = null;
+
+    _hideBreakPopup();
 
     setState(() {
       _isRunning = false;
@@ -1425,7 +1132,12 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
     _showStatusMessage('Timer reset');
   }
 
-  Widget _buildButton(String text, VoidCallback onTap, {Color? color, bool isPrimary = false}) {
+  Widget _buildButton(
+    String text,
+    VoidCallback onTap, {
+    Color? color,
+    bool isPrimary = false,
+  }) {
     return GestureDetector(
       onTap: _isPhaseTransitioning ? null : onTap,
       child: AnimatedContainer(
@@ -1494,10 +1206,7 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
             const SizedBox(height: 6),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
             ),
           ],
         ),
@@ -1553,21 +1262,18 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
 
     return Scaffold(
       backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
-      bottomNavigationBar: const BottomAppBar(
-        child: TaskBar(),
-      ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      appBar: AppBar(elevation: 0, backgroundColor: Colors.transparent),
+      bottomNavigationBar: const BottomAppBar(child: TaskBar()),
+      body: Stack(
+        children: [
+          FadeTransition(
+            opacity: _fadeAnimation,
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 const SizedBox(height: 20),
                 const StudyBuddyPageTitle(
                   title: 'THE\nFOCUS',
@@ -1577,7 +1283,10 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                 Center(
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: _currentMode == FocusMode.study
                           ? AppPalette.primarySoft
@@ -1604,7 +1313,9 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _currentMode == FocusMode.study ? 'Study Time' : 'Break Time',
+                          _currentMode == FocusMode.study
+                              ? 'Study Time'
+                              : 'Break Time',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
@@ -1620,7 +1331,9 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                 const SizedBox(height: 24),
                 Center(
                   child: ScaleTransition(
-                    scale: _isRunning ? _pulseAnimation : const AlwaysStoppedAnimation(1.0),
+                    scale: _isRunning
+                        ? _pulseAnimation
+                        : const AlwaysStoppedAnimation(1.0),
                     child: Container(
                       width: 280,
                       padding: const EdgeInsets.symmetric(vertical: 28),
@@ -1650,8 +1363,8 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                             color: _isRunning
                                 ? AppPalette.primary
                                 : (_currentMode == FocusMode.study
-                                    ? AppPalette.primary
-                                    : Colors.black87),
+                                      ? AppPalette.primary
+                                      : Colors.black87),
                             letterSpacing: 2,
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
@@ -1663,7 +1376,10 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                 const SizedBox(height: 16),
                 Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: AppPalette.background,
                       borderRadius: BorderRadius.circular(12),
@@ -1715,7 +1431,9 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                                         Icons.local_fire_department,
                                         size: 64,
                                         color: _isRunning
-                                            ? AppPalette.primary.withValues(alpha: 0.4)
+                                            ? AppPalette.primary.withValues(
+                                                alpha: 0.4,
+                                              )
                                             : Colors.grey.shade400,
                                       ),
                                     ),
@@ -1764,46 +1482,50 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Center(
-                  child: _buildButton('Set Times', _setCustomTimes),
-                ),
+                Center(child: _buildButton('Set Times', _setCustomTimes)),
                 const SizedBox(height: 16),
                 Center(
                   child: _isPhaseTransitioning
                       ? const CircularProgressIndicator()
                       : (_isRunning
-                          ? Wrap(
-                              spacing: 12,
-                              runSpacing: 10,
-                              alignment: WrapAlignment.center,
-                              children: [
-                                _buildButton('Pause', _pauseTimer),
-                                _buildButton('Stop', _stopTimer),
-                                _buildButton('Reset', _resetTimer),
-                              ],
-                            )
-                          : Wrap(
-                              spacing: 12,
-                              runSpacing: 10,
-                              alignment: WrapAlignment.center,
-                              children: [
-                                _buildButton(
-                                  _primaryButtonLabel(),
-                                  _startTimer,
-                                  isPrimary: true,
-                                ),
-                                _buildButton(_secondaryButtonLabel(), _secondaryButtonAction()),
-                                if (_isPaused) ...[
+                            ? Wrap(
+                                spacing: 12,
+                                runSpacing: 10,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  _buildButton('Pause', _pauseTimer),
                                   _buildButton('Stop', _stopTimer),
                                   _buildButton('Reset', _resetTimer),
                                 ],
-                              ],
-                            )),
+                              )
+                            : Wrap(
+                                spacing: 12,
+                                runSpacing: 10,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  _buildButton(
+                                    _primaryButtonLabel(),
+                                    _startTimer,
+                                    isPrimary: true,
+                                  ),
+                                  _buildButton(
+                                    _secondaryButtonLabel(),
+                                    _secondaryButtonAction(),
+                                  ),
+                                  if (_isPaused) ...[
+                                    _buildButton('Stop', _stopTimer),
+                                    _buildButton('Reset', _resetTimer),
+                                  ],
+                                ],
+                              )),
                 ),
                 const SizedBox(height: 28),
                 Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: AppPalette.primarySoft,
                       borderRadius: BorderRadius.circular(16),
@@ -1825,7 +1547,10 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                     children: [
                       _buildSummaryCard('Today', _formatDuration(todaySeconds)),
                       const SizedBox(width: 10),
-                      _buildSummaryCard('This Week', _formatDuration(weekSeconds)),
+                      _buildSummaryCard(
+                        'This Week',
+                        _formatDuration(weekSeconds),
+                      ),
                       const SizedBox(width: 10),
                       _buildSummaryCard('Sessions', '$_completedSessionsCount'),
                     ],
@@ -1862,11 +1587,16 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _focusSessions.length > 10 ? 10 : _focusSessions.length,
+                    itemCount: _focusSessions.length > 10
+                        ? 10
+                        : _focusSessions.length,
                     itemBuilder: (context, index) {
-                      final Map<String, dynamic> session = _focusSessions[index];
-                      final int duration = (session['durationSeconds'] as int?) ?? 0;
-                      final String status = session['status']?.toString() ?? _completedStatus;
+                      final Map<String, dynamic> session =
+                          _focusSessions[index];
+                      final int duration =
+                          (session['durationSeconds'] as int?) ?? 0;
+                      final String status =
+                          session['status']?.toString() ?? _completedStatus;
                       final bool isCompleted = status == _completedStatus;
 
                       return Padding(
@@ -1880,7 +1610,9 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                             color: AppPalette.surface,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: isCompleted ? Colors.black12 : Colors.red.withValues(alpha: 0.3),
+                              color: isCompleted
+                                  ? Colors.black12
+                                  : Colors.red.withValues(alpha: 0.3),
                               width: 1,
                             ),
                           ),
@@ -1893,7 +1625,9 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                                     width: 10,
                                     height: 10,
                                     decoration: BoxDecoration(
-                                      color: isCompleted ? AppPalette.primary : Colors.red,
+                                      color: isCompleted
+                                          ? AppPalette.primary
+                                          : Colors.red,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -1922,7 +1656,9 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w800,
-                                        color: isCompleted ? AppPalette.primary : Colors.red,
+                                        color: isCompleted
+                                            ? AppPalette.primary
+                                            : Colors.red,
                                       ),
                                     ),
                                   ),
@@ -1954,10 +1690,96 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                     },
                   ),
                 const SizedBox(height: 20),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+          if (_isBreakPopupVisible)
+            Positioned.fill(
+              child: Material(
+                color: Colors.black.withValues(alpha: 0.45),
+                child: Center(
+                  child: Container(
+                    margin: const EdgeInsets.all(16),
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    decoration: BoxDecoration(
+                      color: AppPalette.surface,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: Colors.black, width: 2),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.coffee,
+                              size: 32,
+                              color: Colors.orange,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Break Time!',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Great work! Take a ${_breakMinutes}m break.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: AppPalette.textMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.asset(
+                              'lib/assets/break.gif',
+                              height: 160,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  height: 160,
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade100,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      '☕ Break Time!',
+                                      style: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
