@@ -483,8 +483,11 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () {
-                                database.removeNote(existing!.index);
+                                final int indexToRemove = existing.index;
                                 Navigator.pop(context);
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  database.removeNote(indexToRemove);
+                                });
                               },
                               icon: const Icon(Icons.delete_outline, color: Colors.red),
                               label: const Text(
@@ -519,13 +522,17 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
                                 blockColorValue: 0xFF66BB6A,
                               );
 
-                              if (isEditing) {
-                                database.updateNote(existing!.index, task);
-                              } else {
-                                database.addNote(task);
-                              }
+                              final bool shouldEdit = isEditing;
+                              final int? editIndex = existing?.index;
 
                               Navigator.pop(context);
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (shouldEdit && editIndex != null) {
+                                  database.updateNote(editIndex, task);
+                                } else {
+                                  database.addNote(task);
+                                }
+                              });
                             },
                             icon: Icon(isEditing ? Icons.save : Icons.add),
                             label: Text(isEditing ? 'Save Changes' : 'Create Task'),
@@ -551,8 +558,6 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
       },
     );
 
-    titleController.dispose();
-    detailsController.dispose();
   }
 
   Future<void> _openTodoViewer(_TodoEntry entry) async {
@@ -779,6 +784,7 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
 
   Widget _buildAnimatedTodoItem(_TodoEntry todo, int index) {
     return TweenAnimationBuilder<double>(
+      key: ValueKey(todo.note.date),
       tween: Tween(begin: 0.0, end: 1.0),
       duration: Duration(milliseconds: 300 + (index * 50)),
       curve: Curves.easeOut,

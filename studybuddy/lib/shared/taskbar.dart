@@ -25,31 +25,31 @@ class TaskBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           TaskIcon("lib/assets/home.png", () {
-            Navigator.push(context, MaterialPageRoute(
+            Navigator.pushReplacement(context, MaterialPageRoute(
               builder: (context) {
-                return Homepage();
+                return const Homepage();
               },
             ));
           }),
 
           TaskIcon("lib/assets/planner.png",  () {
-            Navigator.push(context, MaterialPageRoute(
+            Navigator.pushReplacement(context, MaterialPageRoute(
               builder: (context) {
-                return PlannerEmptyScreen();
+                return const PlannerEmptyScreen();
               },
             ));
           }),
           TaskIcon("lib/assets/focus.png",  () {
-            Navigator.push(context, MaterialPageRoute(
+            Navigator.pushReplacement(context, MaterialPageRoute(
               builder: (context) {
-                return FocusPage();
+                return const FocusPage();
               },
             ));
           }),
           TaskIcon("lib/assets/notes.png",  () {
-            Navigator.push(context, MaterialPageRoute(
+            Navigator.pushReplacement(context, MaterialPageRoute(
               builder: (context) {
-                return Notes();
+                return const Notes();
               },
             ));
           }),

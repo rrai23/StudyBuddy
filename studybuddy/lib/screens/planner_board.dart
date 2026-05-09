@@ -355,8 +355,11 @@ class _PlannerBoardState extends State<PlannerBoard> with SingleTickerProviderSt
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () {
-                                _deleteEntry(existingEntry!);
+                                final _PlannerEntry entryToDelete = existingEntry;
                                 Navigator.pop(context);
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  _deleteEntry(entryToDelete);
+                                });
                               },
                               icon: const Icon(Icons.delete_outline, color: Colors.red),
                               label: const Text(
@@ -395,13 +398,17 @@ class _PlannerBoardState extends State<PlannerBoard> with SingleTickerProviderSt
                                 blockColorValue: existingEntry?.note.blockColorValue ?? 0xFF1A26FF,
                               );
 
-                              if (isEditing) {
-                                _database.updateNote(existingEntry.index, note);
-                              } else {
-                                _database.addNote(note);
-                              }
+                              final bool shouldEdit = isEditing;
+                              final int? editIndex = existingEntry?.index;
 
                               Navigator.pop(context);
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (shouldEdit && editIndex != null) {
+                                  _database.updateNote(editIndex, note);
+                                } else {
+                                  _database.addNote(note);
+                                }
+                              });
                             },
                             icon: Icon(isEditing ? Icons.save : Icons.add),
                             label: Text(isEditing ? 'Save Changes' : 'Create Task'),
@@ -427,9 +434,6 @@ class _PlannerBoardState extends State<PlannerBoard> with SingleTickerProviderSt
       },
     );
 
-    titleController.dispose();
-    locationController.dispose();
-    detailsController.dispose();
   }
 
   Future<void> _deleteEntry(_PlannerEntry entry) async {
