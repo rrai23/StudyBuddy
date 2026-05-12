@@ -520,10 +520,11 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                   right: 24,
                   top: 20,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                     Center(
                       child: Container(
                         width: 40,
@@ -746,6 +747,7 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                     ),
                     const SizedBox(height: 8),
                   ],
+                ),
                 ),
               ),
             );

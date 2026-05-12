@@ -66,19 +66,20 @@ class _NotesState extends State<Notes> {
                   border: Border.all(color: Colors.black, width: 3),
                 ),
                 width: 750,
-                height: 760,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 20),
-                    Text(
-                      isEditing ? 'Edit Note' : 'Create A New Note',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 23,
-                        fontWeight: FontWeight.bold,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 20),
+                      Text(
+                        isEditing ? 'Edit Note' : 'Create A New Note',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 23,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 20),
                     SizedBox(
                       width: 300,
                       child: TextField(
@@ -90,6 +91,7 @@ class _NotesState extends State<Notes> {
                             borderSide: BorderSide(color: Colors.black, width: 2),
                           ),
                           label: Text('Title'),
+                          hintText: 'e.g. History Essay Ideas',
                           floatingLabelStyle: TextStyle(color: Colors.black),
                           border: OutlineInputBorder(),
                         ),
@@ -105,6 +107,7 @@ class _NotesState extends State<Notes> {
                         cursorColor: Colors.black,
                         decoration: const InputDecoration(
                           label: Text('Write your note here'),
+                          hintText: 'Start typing your brilliant ideas...',
                           floatingLabelStyle: TextStyle(color: Colors.black),
                           focusColor: Colors.black,
                           focusedBorder: OutlineInputBorder(
@@ -154,7 +157,7 @@ class _NotesState extends State<Notes> {
                         );
                       }).toList(),
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 30),
                     FilledButton(
                       onPressed: () {
                         final NoteData note = NoteData(
@@ -193,6 +196,7 @@ class _NotesState extends State<Notes> {
                     ),
                     const SizedBox(height: 24),
                   ],
+                ),
                 ),
               ),
             );
@@ -389,18 +393,67 @@ class NoteContainer extends StatelessWidget {
           child: Container(
             width: 175,
             height: 150,
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Color(noteData.blockColorValue),
-              borderRadius: BorderRadius.circular(30),
+              borderRadius: BorderRadius.circular(28),
               border: Border.all(color: Colors.black, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(noteData.blockColorValue).withValues(alpha: 0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  width: 1.5,
+                ),
+              ),
+              child: Text(
+                noteData.content,
+                maxLines: 4,
+                overflow: TextOverflow.fade,
+                style: GoogleFonts.montserrat(
+                  fontSize: 12,
+                  height: 1.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
             ),
           ),
         ),
-        Text(
-          noteData.title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Text(
+            noteData.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.montserrat(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: Colors.black87,
+            ),
+          ),
         ),
-        Text(noteData.date),
+        const SizedBox(height: 4),
+        Text(
+          noteData.date,
+          style: GoogleFonts.montserrat(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.black54,
+          ),
+        ),
       ],
     );
   }

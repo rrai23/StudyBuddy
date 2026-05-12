@@ -309,9 +309,10 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
                   right: 24,
                   top: 20,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
                       child: Container(
@@ -550,6 +551,7 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
                     ),
                     const SizedBox(height: 8),
                   ],
+                ),
                 ),
               ),
             );

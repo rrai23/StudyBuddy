@@ -93,10 +93,11 @@ class _PlannerBoardState extends State<PlannerBoard> with SingleTickerProviderSt
                   right: 24,
                   top: 20,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                     Center(
                       child: Container(
                         width: 40,
@@ -426,6 +427,7 @@ class _PlannerBoardState extends State<PlannerBoard> with SingleTickerProviderSt
                     ),
                     const SizedBox(height: 8),
                   ],
+                ),
                 ),
               ),
             );
