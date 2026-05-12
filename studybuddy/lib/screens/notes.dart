@@ -57,15 +57,18 @@ class _NotesState extends State<Notes> {
     showDialog(
       context: context,
       builder: (context) {
+        final double screenWidth = MediaQuery.sizeOf(context).width;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
+                constraints: const BoxConstraints(maxWidth: 750),
+                width: screenWidth * 0.9,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(30),
                   border: Border.all(color: Colors.black, width: 3),
                 ),
-                width: 750,
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -210,14 +213,17 @@ class _NotesState extends State<Notes> {
     showDialog(
       context: context,
       builder: (context) {
+        final double screenWidth = MediaQuery.sizeOf(context).width;
         return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16),
           child: Container(
+            constraints: const BoxConstraints(maxWidth: 750),
+            width: screenWidth * 0.9,
+            height: 700,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(30),
               border: Border.all(color: Colors.black, width: 3),
             ),
-            width: 750,
-            height: 700,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -343,10 +349,12 @@ class _NotesState extends State<Notes> {
           const SizedBox(height: 30),
           Expanded(
             child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 220,
                 mainAxisSpacing: 20,
                 crossAxisSpacing: 20,
+                childAspectRatio: 0.82,
               ),
               itemBuilder: (context, index) {
                 final _NoteRecord record = notes[index];
@@ -391,7 +399,6 @@ class NoteContainer extends StatelessWidget {
         GestureDetector(
           onTap: onTap,
           child: Container(
-            width: 175,
             height: 150,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(

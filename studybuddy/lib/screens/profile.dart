@@ -267,7 +267,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           padding: const EdgeInsets.all(20),
           child: Center(
             child: Container(
-              width: 420,
+              width: double.infinity,
               constraints: const BoxConstraints(maxWidth: 500),
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(

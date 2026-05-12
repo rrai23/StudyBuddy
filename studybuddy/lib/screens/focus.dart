@@ -1337,7 +1337,8 @@ class _FocusMainState extends State<_FocusMain> with TickerProviderStateMixin {
                         ? _pulseAnimation
                         : const AlwaysStoppedAnimation(1.0),
                     child: Container(
-                      width: 280,
+                      width: double.infinity,
+                      constraints: const BoxConstraints(maxWidth: 320),
                       padding: const EdgeInsets.symmetric(vertical: 28),
                       decoration: BoxDecoration(
                         color: AppPalette.surface,

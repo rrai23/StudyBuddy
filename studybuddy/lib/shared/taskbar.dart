@@ -68,15 +68,13 @@ class TaskIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      child:  Image.asset(
-            path,
-            width: 80,
-            height: 80,
-            fit: BoxFit.contain,
-            ),
-      onTap: () {
-        onTap();
-      },
+      onTap: onTap,
+      child: Image.asset(
+        path,
+        width: 65,
+        height: 65,
+        fit: BoxFit.contain,
+      ),
     );
   }
 }
